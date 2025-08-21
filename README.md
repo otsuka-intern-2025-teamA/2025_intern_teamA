@@ -13,5 +13,3 @@
 4. pip install jupyter ipykernel
 5. python -m ipykernel install --user --name otsuka-env --display-name "Python (otsuka-env)"
 6. pip install -r requirements.txt
-
-これでおっけー

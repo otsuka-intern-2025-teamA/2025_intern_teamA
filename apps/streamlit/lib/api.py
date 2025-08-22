@@ -17,16 +17,17 @@ class APIClient:
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
     
-    def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> Any:
         """
         HTTP リクエストを実行し、結果をJSONで返す
         エラーハンドリング付き
         """
         url = f"{self.base_url}{endpoint}"
-        
         try:
             response = self.session.request(method, url, **kwargs)
             response.raise_for_status()
+            if response.status_code == 204 or not response.content:
+                return None
             return response.json()
         except requests.exceptions.ConnectionError:
             logger.error(f"API接続エラー: {url}")
@@ -61,9 +62,10 @@ class APIClient:
         """案件情報を更新"""
         return self._make_request("PUT", f"/items/{item_id}", json=data)
     
-    def delete_item(self, item_id: str) -> None:
+    def delete_item(self, item_id: str):
         """案件を削除"""
-        self._make_request("DELETE", f"/items/{item_id}")
+        response = self._make_request("DELETE", f"/items/{item_id}")
+        return
     
     # === メッセージ管理 API ===
     

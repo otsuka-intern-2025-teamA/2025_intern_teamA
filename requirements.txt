@@ -353,3 +353,4 @@ streamlit
 uuid
 sqlalchemy
 uvicorn
+fastapi

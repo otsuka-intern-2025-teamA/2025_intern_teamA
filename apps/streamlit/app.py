@@ -7,11 +7,6 @@ from datetime import date, datetime
 import re
 
 
-# ---- ページ設定 & CSS（サイドバー非表示 + カード見た目）
-st.set_page_config(page_title="案件一覧", page_icon="🗂️", layout="wide", initial_sidebar_state="collapsed",
-menu_items={"Get Help": None, "Report a bug": None, "About": None})
-
-
 st.markdown(
 """
 <style>
@@ -33,9 +28,9 @@ background: #FFFFFF !important;
 margin: 0 !important;
 }
 /* カード内のタイポ/タグ */
-.title { font-weight: 900; font-size: 1.2rem; margin: 0 0 2px 0; line-height: 1.2; display:flex; align-items:center; gap:8px; }
+.title { font-weight: 900; font-size: 1.2rem; margin: 0 0 1px 0; line-height: 1.2; display:flex; align-items:center; gap:8px; }
 .tag { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#F3F6FF; color:#2B59FF; font-size:0.8rem; line-height:1.2; white-space:nowrap; }
-.company { font-size: 1.05rem; margin: 0 0 6px 0; font-weight: 600; }
+.company { font-size: 1.05rem; margin: 0 0 4px 0; font-weight: 600; }
 .meta { font-size: 0.95rem; line-height: 1.6; margin: 0; }
 </style>
 """,
@@ -47,7 +42,13 @@ try:
     from apps.streamlit.components.layout import apply_base_ui
     apply_base_ui(hide_sidebar=True)
 except Exception:
-    st.set_page_config(page_title="案件一覧", page_icon="🗂️", layout="wide", initial_sidebar_state="collapsed")
+    st.set_page_config(
+        page_title="案件一覧",
+        page_icon="data/images/otsuka_icon.png",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+        menu_items={"Get Help": None, "Report a bug": None, "About": None}
+    )
     st.markdown(
         """
         <style>
@@ -98,11 +99,9 @@ def _fmt(d):
 
 
 def _switch_page(page_file: str):
-    fn = getattr(st, "switch_page", None)
-    if fn:
-        fn(page_file)
-    else:
-        st.warning("Streamlit が古いため自動遷移できません（1.30+ を推奨）。")
+    # ページが未実装であることを通知
+    st.error(f"ページ '{page_file}' はまだ実装されていません。")
+    st.info("この機能は現在開発中です。")
 
 # ---- ダイアログ
 Dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
@@ -173,35 +172,32 @@ else:
     def open_edit_dialog(pj):
         st.warning("このStreamlitではダイアログ未対応です")
 
-# ---- 一覧UI
-st.title("案件一覧")
+# タイトル（左上）とロゴ（右下寄り）を配置
+header_col1, header_col2 = st.columns([3, 0.5])
 
-c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 3, 1.6])
-with c1:
-    q = st.text_input("検索（案件名・企業名）", "")
-with c2:
-    status_filter = st.selectbox("ステータス", ["すべて"] + STATUS_OPTIONS)
-with c3:
-    sort_key = st.selectbox("並べ替え基準", ["最終更新日", "企業名", "案件名", "作成日"])
-with c4:
-    order = st.radio("順序", ["降順", "昇順"], horizontal=True)
-with c5:
-    if st.button("＋ 新規作成", use_container_width=True):
+with header_col1:
+    st.title("案件一覧")
+
+with header_col2:
+    # ロゴを右下寄りに配置
+    st.markdown("")  # 少し下にスペース
+    st.markdown("")  # さらに下にスペース
+    try:
+        st.image("data/images/otsuka_logo.jpg", width=120)  # サイズを少し小さく
+    except FileNotFoundError:
+        st.info("ロゴ画像を配置してください")
+    except Exception:
+        st.warning("ロゴの読み込みエラー")
+
+# 新規作成ボタンをより右に配置
+st.markdown("")  # 少しスペースを追加
+col1, col2 = st.columns([7, 1])
+with col2:
+    if st.button("＋ 新規作成"):
         open_new_dialog()
 
-# フィルタ
-
-def _match(p):
-    ok_q = (q.strip() == "") or (q in p.get("title", "")) or (q in p.get("company", "")) or (q in p.get("summary", ""))
-    ok_s = (status_filter == "すべて") or (p.get("status") == status_filter)
-    return ok_q and ok_s
-
-items = [p for p in st.session_state.projects if _match(p)]
-
-# ソート
-key_map = {"最終更新日": "updated", "企業名": "company", "案件名": "title", "作成日": "created"}
-rev = (order == "降順")
-items.sort(key=lambda x: x.get(key_map[sort_key]), reverse=rev)
+# 案件リストをそのまま表示
+items = st.session_state.projects
 
 # カード描画
 cols_per_row = 3 if len(items) >= 3 else 2
@@ -223,7 +219,7 @@ for r in range(rows):
                         unsafe_allow_html=True,
                     )
                 with h2:
-                    if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True):
+                    if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"):
                         open_edit_dialog(p)
                 st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
                 st.markdown(
@@ -236,8 +232,8 @@ for r in range(rows):
                 with b1:
                     if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True):
                         st.session_state.selected_project = p
-                        _switch_page("pages/2_企業を知る.py")
+                        _switch_page("企業分析")
                 with b2:
                     if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True):
                         st.session_state.selected_project = p
-                        _switch_page("pages/3_提案を作る.py")
+                        _switch_page("スライド作成")

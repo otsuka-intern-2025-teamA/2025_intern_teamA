@@ -1,7 +1,7 @@
 # otsuka_internship
 
-## member
-- アキモウダニラ
+## members
+- アキモヴ・ダニラ
 - 吉川泰生
 - 柴崎陸
 - 深瀬智大

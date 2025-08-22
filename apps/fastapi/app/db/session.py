@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from pathlib import Path
 import os
+from sqlalchemy import event
 
 # データベースファイルのパス設定
 DB_PATH = os.getenv("DATABASE_URL", "data/sqlite/app.db")
@@ -79,6 +80,3 @@ def init_db():
             print(f"Schema initialization error: {e}")
         finally:
             conn.close()
-
-# SQLAlchemyのeventインポート追加
-from sqlalchemy import event

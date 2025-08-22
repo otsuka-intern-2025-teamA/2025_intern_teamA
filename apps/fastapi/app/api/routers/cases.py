@@ -5,6 +5,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
 from datetime import datetime
@@ -30,9 +31,9 @@ def get_items(
     for item in items:
         # 取引履歴の統計を取得
         history_stats = db.query(
-            db.func.count(History.id).label('transaction_count'),
-            db.func.coalesce(db.func.sum(History.amount), 0).label('total_amount'),
-            db.func.max(History.order_date).label('last_order_date')
+            func.count(History.id).label('transaction_count'),
+            func.coalesce(func.sum(History.amount), 0).label('total_amount'),
+            func.max(History.order_date).label('last_order_date')
         ).filter(History.item_id == item.id).first()
         
         # 最新のアシスタントメッセージを取得（要約表示用）

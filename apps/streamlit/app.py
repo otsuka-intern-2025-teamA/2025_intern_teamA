@@ -62,31 +62,18 @@ except Exception:
         unsafe_allow_html=True,
     )
 
+# API クライアントのインポート
+from lib.api import get_api_client, api_available, format_date, APIError
+
 # ---- セッション初期化（※インデント必須）
 if "selected_project" not in st.session_state:
     st.session_state.selected_project = None
 if "projects" not in st.session_state:
-    st.session_state.projects = [
-        {"id": "A001", "title": "案件A", "company": "株式会社〇〇", "status": "調査中", "created": date(2025,8,1),  "updated": date(2025,8,20), "summary": "新規取引候補の企業調査。"},
-        {"id": "B002", "title": "案件B", "company": "株式会社△△", "status": "未着手", "created": date(2025,7,20), "updated": date(2025,8,10), "summary": "RFPに向けて情報収集。"},
-        {"id": "C003", "title": "案件C", "company": "株式会社◇◇", "status": "進行中", "created": date(2025,7,25), "updated": date(2025,8,10), "summary": "既存顧客への提案強化。"},
-        {"id": "D004", "title": "案件D", "company": "株式会社□□", "status": "調査中", "created": date(2025,7,15), "updated": date(2025,8,5),  "summary": "競合比較のための企業分析。"},
-    ]
+    st.session_state.projects = []
 if "edit_id" not in st.session_state:
     st.session_state.edit_id = None
-
-STATUS_OPTIONS = ["未着手", "調査中", "進行中"]
-
-# ---- ユーティリティ
-
-def _next_project_id(projects):
-    nums = []
-    for p in projects:
-        m = re.findall(r"\d+", p.get("id", ""))
-        if m:
-            nums.append(int(m[-1]))
-    n = (max(nums) + 1) if nums else 1
-    return f"N{n:03d}", n
+if "api_error" not in st.session_state:
+    st.session_state.api_error = None
 
 
 def _fmt(d):
@@ -112,24 +99,35 @@ if Dialog:
         with st.form("new_project_form", clear_on_submit=True):
             title = st.text_input("案件名 *")
             company = st.text_input("企業名 *")
-            status = st.selectbox("ステータス", STATUS_OPTIONS, index=0)
             summary = st.text_area("概要", "")
             submitted = st.form_submit_button("作成")
         if submitted:
             if not title.strip() or not company.strip():
                 st.error("案件名と企業名は必須です。")
                 st.stop()
-            new_id, n = _next_project_id(st.session_state.projects)
-            today = date.today()
-            st.session_state.projects.append({
-                "id": new_id,
-                "title": title.strip(),
-                "company": company.strip(),
-                "status": status,
-                "created": today,
-                "updated": today,
-                "summary": summary.strip() or "—",
-            })
+            
+            # API経由で新規案件を作成
+            try:
+                if api_available():
+                    api = get_api_client()
+                    new_item_data = {
+                        "title": title.strip(),
+                        "company_name": company.strip(),
+                        "description": summary.strip() or "—"
+                    }
+                    result = api.create_item(new_item_data)
+                    st.success(f"案件「{result['title']}」を作成しました。")
+                    st.session_state.api_error = None  # エラー状態をクリア
+                else:
+                    st.error("🔌 APIサーバーに接続できません。")
+                    return
+            except APIError as e:
+                st.error(f"❌ 案件作成エラー: {e}")
+                return
+            except Exception as e:
+                st.error(f"⚠️ 予期しないエラー: {e}")
+                return
+            
             st.rerun()
 
     @Dialog("案件の編集 / 削除")
@@ -137,11 +135,6 @@ if Dialog:
         with st.form("edit_project_form"):
             title = st.text_input("案件名 *", pj.get("title", ""))
             company = st.text_input("企業名 *", pj.get("company", ""))
-            status = st.selectbox(
-                "ステータス",
-                STATUS_OPTIONS,
-                index=(STATUS_OPTIONS.index(pj.get("status", "未着手")) if pj.get("status") in STATUS_OPTIONS else 0),
-            )
             summary = st.text_area("概要", pj.get("summary", ""))
             confirm_del = st.checkbox("削除を確認する")
             c1, c2 = st.columns(2)
@@ -149,23 +142,59 @@ if Dialog:
                 saved = st.form_submit_button("保存")
             with c2:
                 deleted = st.form_submit_button("削除")
+        
         if saved:
-            pj.update({
-                "title": title.strip(),
-                "company": company.strip(),
-                "status": status,
-                "summary": summary.strip() or "—",
-                "updated": date.today(),
-            })
-            st.success("更新しました。")
+            if not title.strip() or not company.strip():
+                st.error("案件名と企業名は必須です。")
+                st.stop()
+                
+            # API経由で案件を更新
+            try:
+                if api_available():
+                    api = get_api_client()
+                    update_data = {
+                        "title": title.strip(),
+                        "company_name": company.strip(),
+                        "description": summary.strip() or "—"
+                    }
+                    result = api.update_item(pj["id"], update_data)
+                    st.success(f"案件「{result['title']}」を更新しました。")
+                    st.session_state.api_error = None
+                else:
+                    st.error("🔌 APIサーバーに接続できません。")
+                    return
+            except APIError as e:
+                st.error(f"❌ 案件更新エラー: {e}")
+                return
+            except Exception as e:
+                st.error(f"⚠️ 予期しないエラー: {e}")
+                return
+                
             st.rerun()
+            
         if deleted:
-            if confirm_del:
-                st.session_state.projects = [x for x in st.session_state.projects if x["id"] != pj["id"]]
-                st.success("削除しました。")
-                st.rerun()
-            else:
+            if not confirm_del:
                 st.error("削除にはチェックが必要です。")
+                return
+                
+            # API経由で案件を削除
+            try:
+                if api_available():
+                    api = get_api_client()
+                    api.delete_item(pj["id"])
+                    st.success(f"案件「{pj['title']}」を削除しました。")
+                    st.session_state.api_error = None
+                else:
+                    st.error("🔌 APIサーバーに接続できません。")
+                    return
+            except APIError as e:
+                st.error(f"❌ 案件削除エラー: {e}")
+                return
+            except Exception as e:
+                st.error(f"⚠️ 予期しないエラー: {e}")
+                return
+                
+            st.rerun()
 else:
     def open_new_dialog():
         st.warning("このStreamlitではダイアログ未対応です")
@@ -177,6 +206,7 @@ header_col1, header_col2 = st.columns([3, 0.5])
 
 with header_col1:
     st.title("案件一覧")
+
 
 with header_col2:
     # ロゴを右下寄りに配置
@@ -196,8 +226,54 @@ with col2:
     if st.button("＋ 新規作成"):
         open_new_dialog()
 
-# 案件リストをそのまま表示
-items = st.session_state.projects
+# データ取得関数を定義
+def fetch_items_from_api():
+    """APIから最新の案件データを取得する"""
+    try:
+        if api_available():
+            api = get_api_client()
+            api_items = api.get_items()
+            
+            # APIデータをStreamlit形式に変換
+            items = []
+            for item in api_items:
+                formatted_item = {
+                    "id": item["id"],
+                    "title": item["title"],
+                    "company": item["company_name"],
+                    "status": "調査中",  # デフォルトステータス
+                    "created": format_date(item["created_at"]),
+                    "updated": format_date(item["updated_at"]),
+                    "summary": item["description"] or "—",
+                    "transaction_count": item.get("transaction_count", 0),
+                    "total_amount": item.get("total_amount", 0),
+                    "last_order_date": item.get("last_order_date"),
+                    "latest_message": item.get("latest_assistant_message")
+                }
+                items.append(formatted_item)
+            
+            st.session_state.projects = items
+            st.session_state.api_error = None
+            return items
+        else:
+            if st.session_state.api_error != "connection":
+                st.error("🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。")
+                st.session_state.api_error = "connection"
+            return st.session_state.projects  # キャッシュされたデータを使用
+            
+    except APIError as e:
+        if st.session_state.api_error != str(e):
+            st.error(f"❌ API エラー: {e}")
+            st.session_state.api_error = str(e)
+        return st.session_state.projects  # キャッシュされたデータを使用
+    except Exception as e:
+        if st.session_state.api_error != str(e):
+            st.error(f"⚠️ 予期しないエラー: {e}")
+            st.session_state.api_error = str(e)
+        return st.session_state.projects  # キャッシュされたデータを使用
+
+# APIから案件データを取得
+items = fetch_items_from_api()
 
 # カード描画
 cols_per_row = 3 if len(items) >= 3 else 2
@@ -222,10 +298,29 @@ for r in range(rows):
                     if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"):
                         open_edit_dialog(p)
                 st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
+                # メタ情報を動的に構築
+                meta_info = []
+                meta_info.append(f"・最終更新：{_fmt(p.get('updated'))}")
+                meta_info.append(f"・作成日：{_fmt(p.get('created'))}")
+                meta_info.append(f"・概要：{p.get('summary', '—')}")
+                
+                # 取引情報がある場合は追加
+                if p.get("transaction_count", 0) > 0:
+                    meta_info.append(f"・取引履歴：{p['transaction_count']}件")
+                    if p.get("total_amount", 0) > 0:
+                        meta_info.append(f"・総取引額：¥{p['total_amount']:,.0f}")
+                    if p.get("last_order_date"):
+                        meta_info.append(f"・最終発注：{format_date(p['last_order_date'])}")
+                else:
+                    meta_info.append("・取引履歴：未リンク")
+                
+                # 最新メッセージがある場合は追加
+                if p.get("latest_message"):
+                    msg_preview = p["latest_message"][:50] + "..." if len(p["latest_message"]) > 50 else p["latest_message"]
+                    meta_info.append(f"・最新分析：{msg_preview}")
+                
                 st.markdown(
-                    f'<div class="meta">・最終更新：{_fmt(p.get("updated"))}<br>'
-                    f'・作成日：{_fmt(p.get("created"))}<br>'
-                    f'・概要：{p.get("summary", "—")}</div>',
+                    f'<div class="meta">{"".join([f"{info}<br>" for info in meta_info])}</div>',
                     unsafe_allow_html=True,
                 )
                 b1, b2 = st.columns(2)

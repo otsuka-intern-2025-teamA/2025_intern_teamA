@@ -83,8 +83,6 @@ otsuka_internship_teamA/
 │   ├── DatasetA.ipynb              # データ分析用ノートブック
 │   ├── DatasetB.ipynb              # データ分析用ノートブック
 │   └── gpt_call_template.ipynb     # OpenAI API呼び出し例
-│
-├── .env.example                    # 環境変数サンプル
 ├── README.md
 └── requirements.txt                # ルート依存関係
 ```

@@ -32,10 +32,6 @@ otsuka_internship_teamA/
 │   │   │   ├── case_card.py        # 案件カード表示
 │   │   │   ├── right_pane.py       # 右ペイン管理
 │   │   │   └── chat_panel.py       # チャットパネル
-│   │   ├── lib/                    # ライブラリ
-│   │   │   ├── api.py              # FastAPI呼び出しラッパー
-│   │   │   ├── state.py            # session_state管理
-│   │   │   └── types.py            # 型定義
 │   │   ├── .streamlit/config.toml  # Streamlit設定
 │   │   └── requirements.txt        # 依存関係
 │   │
@@ -88,15 +84,6 @@ otsuka_internship_teamA/
 │   ├── DatasetA.ipynb              # データ分析用ノートブック
 │   ├── DatasetB.ipynb              # データ分析用ノートブック
 │   └── gpt_call_template.ipynb     # OpenAI API呼び出し例
-│
-├── scripts/                        # 開発・運用スクリプト
-│   ├── dev_up.sh                   # 開発環境起動
-│   ├── load_transactions.py        # CSV→SQLite取込
-│   └── check_fts.sql               # FTS動作確認
-│
-├── tests/                          # テストファイル
-│   ├── test_cases.py
-│   └── test_analysis.py
 │
 ├── .env.example                    # 環境変数サンプル
 ├── README.md

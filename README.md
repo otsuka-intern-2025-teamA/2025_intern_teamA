@@ -1,9 +1,8 @@
 # otsuka_internship
-
 営業支援システム - 企業分析とRAG検索機能を持つStreamlit + FastAPIアプリケーション
 
-## member
-- アキモウダニラ
+## members
+- アキモヴ・ダニラ
 - 吉川泰生
 - 柴崎陸
 - 深瀬智大

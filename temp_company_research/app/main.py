@@ -1,38 +1,31 @@
 # app/main.py
 
-# 1) できるだけ早く .env を読み込む
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(), override=False)
 
-# 2) FastAPI とバリデーションのインポート
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Any
+import os
 
-
-# 3) パイプラインのインポート
 from research.pipeline import run_pipeline
+from agent.runner import run_agentic  # ← NEW
 
-# レポートで許可されているセクション
-ALLOWED_SECTIONS = {"profile", "products", "market", "financials", "news"}
+ALLOWED_SECTIONS = {"profile", "products", "market", "financials", "news", "risks"}
+
+DEFAULT_MODE = "agent" if os.getenv("AGENTIC_DEFAULT", "0") == "1" else "pipeline"
 
 app = FastAPI(
-    title="Company Research Backend (Tavily + Azure OpenAI gpt-5-mini)",
-    version="0.1.0",
+    title="Company Research Backend (Agentic + Pipeline)",
+    version="0.2.0",
     description="POST /report -> Markdown + briefings + sources"
 )
 
 class ReportRequest(BaseModel):
-    # レポート生成のための入力
-    company_name: str = Field(..., min_length=1, description="会社名")
-    # 会社名
-    locale: str = Field(default="en", pattern="^(en|ja|ru)$", description="応答言語: en/ja/ru")
-    # 応答言語: en/ja/ru
-    sections: List[str] = Field(
-        default_factory=list,
-        description="レポートのセクション: profile, products, market, financials, news（デフォルトは全て）"
-        # レポートのセクション: profile, products, market, financials, news（デフォルトは全て）
-    )
+    company_name: str = Field(..., min_length=1)
+    locale: str = Field(default="en", pattern="^(en|ja|ru)$")
+    sections: List[str] = Field(default_factory=list)
+    mode: str = Field(default=DEFAULT_MODE, pattern="^(agent|pipeline)$")
 
     @field_validator("sections")
     @classmethod
@@ -46,41 +39,23 @@ class ReportRequest(BaseModel):
 
 @app.get("/healthz")
 async def health() -> Dict[str, str]:
-    # ヘルスチェック用エンドポイント
     return {"status": "ok"}
-
-@app.get("/")
-async def root() -> Dict[str, Any]:
-    # シンプルな挨拶とAPIの案内
-    return {
-        "name": "Company Research Backend",
-        "endpoints": {
-            "POST /report": {
-                "body": {
-                    "company_name": "Sony Group Corporation",
-                    "locale": "ja",
-                    "sections": ["profile", "products", "market", "financials", "news"]
-                }
-            },
-            "GET /docs": "Swagger UI"
-        }
-    }
 
 @app.post("/report")
 async def create_report(req: ReportRequest) -> Dict[str, Any]:
-    # メインメソッド：会社名を受け取り、以下を返す
-    # - markdown: 完全なレポート
-    # - briefings: セクションごとの内容（profile/products/market/financials/news）
-    # - sources: ソース一覧（id/title/url）
-    # - meta: メタ情報（resolved_name, source_count）
     try:
-        sections = req.sections or ["profile", "products", "market", "financials", "news"]
+        sections = req.sections or ["profile", "products", "market", "financials", "news", "risks"]
 
-        md, sources, meta, briefings = await run_pipeline(
-            company=req.company_name,
-            locale=req.locale,
-            sections=sections
-        )
+        if req.mode == "agent":
+            md, sources, meta, briefings = await run_agentic(
+                company=req.company_name, locale=req.locale, sections=sections,
+                max_steps=int(os.getenv("MAX_AGENT_STEPS", "5"))
+            )
+        else:
+            md, sources, meta, briefings = await run_pipeline(
+                company=req.company_name, locale=req.locale, sections=sections
+            )
+            # старый пайплайн не возвращал briefings — но в нашей реализации возвращает
 
         return {
             "company": req.company_name,
@@ -88,14 +63,11 @@ async def create_report(req: ReportRequest) -> Dict[str, Any]:
             "sources": sources,
             "meta": meta,
             "briefings": briefings,
+            "mode": req.mode,
         }
-
     except Exception as e:
-        # ここでロギングを追加可能（sentry/loguru など）
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ローカル起動例："python -m app.main"（通常は uvicorn CLI で起動）
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

@@ -14,7 +14,7 @@ st.set_page_config(page_title="Company Intel", page_icon="🔎", layout="wide")
 # --------- 設定 / ENV ----------
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 DEFAULT_LOCALE = os.getenv("FRONTEND_LOCALE", "ja")  # en | ja | ru
-DEFAULT_SECTIONS = ["profile", "products", "market", "financials", "news"]
+DEFAULT_SECTIONS = ["profile", "products", "market", "financials", "news", "risks"]
 
 # llm.company_briefing が更新されていれば利用
 _backend_via_llm = None
@@ -106,7 +106,7 @@ def main():
         st.markdown("---")
         with st.expander("表示するセクション（変更可）", expanded=False):
             selected = []
-            for s_name in ["profile", "products", "market", "financials", "news"]:
+            for s_name in ["profile", "products", "market", "financials", "news","risks"]:
                 checked = st.checkbox(s_name, value=(s_name in DEFAULT_SECTIONS))
                 if checked:
                     selected.append(s_name)

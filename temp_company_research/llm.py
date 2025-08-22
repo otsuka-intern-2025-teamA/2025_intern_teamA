@@ -42,6 +42,7 @@ def company_briefing(company: str) -> CompanyReport:
     market_block = brief.get("market", "")
     financials = brief.get("financials", "")
     news = brief.get("news", "")
+    risks = brief.get("risks", "")
 
     # フィールド
     return CompanyReport(
@@ -51,7 +52,7 @@ def company_briefing(company: str) -> CompanyReport:
         customers_and_markets=(market_block + ("\n\n" + financials if financials else "")),
         recent_news=news,
         competitors="",  # 必要なら market_block から抽出可能
-        risks="",        # MVPでは返さない
+        risks=risks,
         suggested_questions=[],
         sources=sources,
     )

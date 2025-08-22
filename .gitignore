@@ -9,5 +9,5 @@ data/sqlite/*.db
 data/sqlite/*.db-journal
 
 # CSVデータファイル
-data/csv/DatasetA/*.csv
-data/csv/DatasetB/*.csv
+data/csv/products/DatasetA/*.csv
+data/csv/products/DatasetB/*.csv

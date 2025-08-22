@@ -1,4 +1,13 @@
+# 環境設定
 .env
+
+# Python仮想環境
 .venv
-crawldata/DatasetA/*.csv
-crawldata/DatasetB/*.csv
+
+# データベース
+data/sqlite/*.db
+data/sqlite/*.db-journal
+
+# CSVデータファイル
+data/csv/DatasetA/*.csv
+data/csv/DatasetB/*.csv

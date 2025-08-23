@@ -1,0 +1,560 @@
+2025-08-23 13:34:37 | INFO     | root                      | ====================================================================================================
+2025-08-23 13:34:37 | INFO     | root                      | 🚀 Company Research Agent - Logging System Initialized
+2025-08-23 13:34:37 | INFO     | root                      | 📅 Started at: 2025-08-23 13:34:37
+2025-08-23 13:34:37 | INFO     | root                      | 📁 Log file: /Users/user/Desktop/ootsukashoukai/borrowing_backend/fixind_merged/merged/logs/log.txt
+2025-08-23 13:34:37 | INFO     | root                      | 🔧 Log level: INFO
+2025-08-23 13:34:37 | INFO     | root                      | ====================================================================================================
+2025-08-23 13:34:49 | INFO     | root                      | 📝 Received research request for 大塚商会
+2025-08-23 13:34:49 | INFO     | root                      | 🚀 Starting research for 大塚商会 at 13:34:49
+2025-08-23 13:34:50 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:50 | INFO     | backend.nodes.curator     | Curator initialized with relevance threshold: 0.4
+2025-08-23 13:34:50 | INFO     | backend.graph             | 🚀 Starting research workflow for 大塚商会
+2025-08-23 13:34:50 | INFO     | backend.graph             | ⏰ Workflow started at: 13:34:50
+2025-08-23 13:34:50 | INFO     | backend.nodes.grounding   | Websocket manager found in state
+2025-08-23 13:34:50 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:50 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:50 | INFO     | backend.nodes.grounding   | ✅ Grounding completed in 0.00s for 大塚商会
+2025-08-23 13:34:50 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:50 | INFO     | backend.nodes.researchers.base | 🔍 Generating queries for 大塚商会 as company_analyzer
+2025-08-23 13:34:55 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | INFO     | backend.nodes.researchers.base | ✅ Generated 4 queries for company_analyzer in 4.87s: ['大塚商会 コア製品とサービス', '大塚商会 会社沿革と主要なマイルストーン', '大塚商会 経営陣と役員一覧', '大塚商会 事業モデルと経営戦略']
+2025-08-23 13:34:55 | INFO     | backend.nodes.researchers.base | 🎯 Final queries for company_analyzer: ['大塚商会 コア製品とサービス', '大塚商会 会社沿革と主要なマイルストーン', '大塚商会 経営陣と役員一覧', '大塚商会 事業モデルと経営戦略']
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as company_analyzer
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:34:55 | INFO     | backend.nodes.researchers.base | 🔍 Generating queries for 大塚商会 as financial_analyzer
+2025-08-23 13:35:01 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | INFO     | backend.nodes.researchers.base | ✅ Generated 4 queries for financial_analyzer in 6.16s: ['大塚商会 資金調達 履歴 企業価値', '大塚商会 有価証券報告書 財務諸表', '大塚商会 事業別 売上高 営業利益', '大塚商会 主要財務指標 ROE ROA EBITDA 利益率']
+2025-08-23 13:35:01 | INFO     | backend.nodes.researchers.base | 🎯 Final queries for financial_analyzer: ['大塚商会 資金調達 履歴 企業価値', '大塚商会 有価証券報告書 財務諸表', '大塚商会 事業別 売上高 営業利益', '大塚商会 主要財務指標 ROE ROA EBITDA 利益率']
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as financial_analyzer
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:01 | INFO     | backend.nodes.researchers.base | 🔍 Generating queries for 大塚商会 as industry_analyzer
+2025-08-23 13:35:08 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | INFO     | backend.nodes.researchers.base | ✅ Generated 4 queries for industry_analyzer in 6.51s: ['大塚商会 market position in None industry', '大塚商会 competitors in None industry', '大塚商会 trends and challenges in None industry', '大塚商会 market size and growth in None industry']
+2025-08-23 13:35:08 | INFO     | backend.nodes.researchers.base | 🎯 Final queries for industry_analyzer: ['大塚商会 market position in None industry', '大塚商会 competitors in None industry', '大塚商会 trends and challenges in None industry', '大塚商会 market size and growth in None industry']
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as industry_analyzer
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:08 | INFO     | backend.nodes.researchers.base | 🔍 Generating queries for 大塚商会 as news_analyzer
+2025-08-23 13:35:13 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | INFO     | backend.nodes.researchers.base | ✅ Generated 4 queries for news_analyzer in 5.87s: ['大塚商会 プレスリリース 2025', '大塚商会 最新発表', '大塚商会 新規提携 発表', '大塚商会 ニュース 最新']
+2025-08-23 13:35:13 | INFO     | backend.nodes.researchers.base | 🎯 Final queries for news_analyzer: ['大塚商会 プレスリリース 2025', '大塚商会 最新発表', '大塚商会 新規提携 発表', '大塚商会 ニュース 最新']
+2025-08-23 13:35:13 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as news_analyzer
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:13 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:14 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:14 | INFO     | backend.nodes.researchers.base | ✅ Search completed for news_analyzer in 1.04s with 5 documents
+2025-08-23 13:35:14 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:14 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as news_analyzer
+2025-08-23 13:35:14 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:14 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:15 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:15 | INFO     | backend.utils.references  | Cleaned title from '大塚製薬（東証:4768）の有望な業績は、軟弱な基盤の上に成り立っ ...' to '大塚製薬（東証:4768）の有望な業績は、軟弱な基盤の上に成り立っ'
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | ✅ Search completed for industry_analyzer in 7.68s with 5 documents
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as industry_analyzer
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | ✅ Search completed for company_analyzer in 20.38s with 5 documents
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as company_analyzer
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | ✅ Search completed for news_analyzer in 0.89s with 5 documents
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as news_analyzer
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:15 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:16 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:16 | INFO     | backend.nodes.researchers.base | ✅ Search completed for news_analyzer in 1.01s with 5 documents
+2025-08-23 13:35:16 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:16 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as news_analyzer
+2025-08-23 13:35:16 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:16 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:17 | INFO     | backend.nodes.researchers.base | ✅ Search completed for industry_analyzer in 1.45s with 5 documents
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as industry_analyzer
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:17 | INFO     | backend.nodes.researchers.base | ✅ Search completed for company_analyzer in 1.76s with 5 documents
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as company_analyzer
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:17 | INFO     | backend.nodes.researchers.base | ✅ Search completed for news_analyzer in 1.10s with 5 documents
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:17 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:18 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:18 | INFO     | backend.nodes.researchers.base | ✅ Search completed for industry_analyzer in 1.82s with 5 documents
+2025-08-23 13:35:18 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:18 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as industry_analyzer
+2025-08-23 13:35:18 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:18 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:19 | INFO     | backend.utils.references  | Cleaned title from 'Yahoo Finance - Stock Market Live, Quotes, Business & Finance ...' to 'Yahoo Finance - Stock Market Live, Quotes, Business & Finance'
+2025-08-23 13:35:19 | INFO     | backend.nodes.researchers.base | ✅ Search completed for financial_analyzer in 17.78s with 5 documents
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as financial_analyzer
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:19 | INFO     | backend.nodes.researchers.base | ✅ Search completed for company_analyzer in 2.14s with 5 documents
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as company_analyzer
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:19 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:20 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:20 | INFO     | backend.nodes.researchers.base | ✅ Search completed for industry_analyzer in 1.65s with 5 documents
+2025-08-23 13:35:20 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:20 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:20 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:21 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:21 | INFO     | backend.nodes.researchers.base | ✅ Search completed for company_analyzer in 1.68s with 5 documents
+2025-08-23 13:35:21 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:21 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:21 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:22 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:22 | INFO     | backend.nodes.researchers.base | ✅ Search completed for financial_analyzer in 3.06s with 5 documents
+2025-08-23 13:35:22 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:22 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as financial_analyzer
+2025-08-23 13:35:22 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:22 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:27 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:27 | INFO     | backend.nodes.researchers.base | ✅ Search completed for financial_analyzer in 4.81s with 5 documents
+2025-08-23 13:35:27 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:27 | INFO     | backend.nodes.researchers.base | 🔍 Starting search for 1 queries as financial_analyzer
+2025-08-23 13:35:27 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:27 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | httpx                     | HTTP Request: POST https://api.tavily.com/search "HTTP/1.1 200 OK"
+2025-08-23 13:35:31 | INFO     | backend.nodes.researchers.base | ✅ Search completed for financial_analyzer in 3.89s with 5 documents
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🚀 Starting curation for company: 大塚商会
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | Sending initial curation status update for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | Sending initial curation status update for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🔍 Evaluating 20 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1004 for 'Top Websites for Finding a Company's Financial Stats The Asia Trade - Bloomberg Best Online Brokers for 2025 – Forbes Advisor Company Earnings Calendar - Yahoo Finance Investopedia Latest News & Updates: Breaking News, Headlines Today'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0619 for 'Company Earnings Calendar - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0571 for 'Investopedia'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0399 for 'Yahoo Finance - Stock Market Live, Quotes, Business & Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0303 for 'Yahoo! Finance Wilson Bank Holding Company (WBHC) Stock Historical Prices & Data - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.3060 for 'Bloomberg 大塚製薬株式会社 - LEI: 353800T027BNMJ8BG858'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1555 for 'Yahoo! Finance Daisui Co.,Ltd. (7538.T) Income Statement - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0845 for 'Yahoo! 來自 Yahoo 財經的股票代號查詢'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0584 for 'Yahoo! Finance SWI.(L)B.F.-GL.CO.H EO B (FHKG.HM) Stock Price, News, Quote & History - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0388 for 'Yahoo! Finance GCL Global Holdings Ltd (GCL) Stock Price, News, Quote & History - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1803 for 'Yahoo! Finance Daifuku Co., Ltd. (DAIUF) Stock Price, News, Quote & History - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0296 for 'Yahoo! Finance JetBlue Airways Corporation (JBLU) Stock Forecasts'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0291 for 'Yahoo! JAPAN AIRLINES CO. LTD (JAL.F) 股價、報價、記錄及新聞 - Yahoo 財經'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0280 for 'Yahoo! Galantas Gold Corporation (GAL.V) Stock Price, News, Quote & History - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0275 for 'Yahoo! Finance Value Line, Inc. (VALU) Company Profile & Facts'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1978 for 'Yahoo! 價值投資：教您如何更準確運用ROE'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1572 for 'Yahoo! Finance Dodge & Cox Exits Time Warner Cable, Buys MetLife'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0446 for 'Yahoo! Finance Exploring revenue and profitability drivers at Disney'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0432 for 'Yahoo! Finance Donald Yacktman Invests in Bank of America, Berkshire'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0414 for 'Yahoo! Finance iShares S&P/TSX Global Gold Index ETF (XGD.TO) Holdings - Yahoo Finance'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document evaluation completed in 0.00s: 0 documents kept
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | Sending initial curation status update for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🔍 Evaluating 18 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0866 for 'Multi-billion-dollar ALCOSAN wastewater project finally underway - CBS News'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0715 for 'Pop Mart sees revenue hitting over $4 bln this year, to launch mini Labubus - Reuters'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0678 for 'XtalPi Holdings Limited to Announce 2025 Interim Results on August 27, 2025 - Financial Times'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0596 for '2026 Farmers' Almanac releases winter predictions - CBS News'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0562 for '2025 Ducati Scrambler Full Throttle Photo Gallery - Autoweek'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0532 for 'Walmart is surging ahead of Target as tariffs take a toll - CNN'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0363 for 'We're raising our price target on TJX after an impressive beat-and-raise quarter - CNBC'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0347 for 'MAX TO SCHOOL: Smart Return to School at Max Stock - The Jerusalem Post'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0320 for 'Home Depot retains annual forecasts, flags 'modest' price hikes due to tariffs - Reuters'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0310 for 'Tevogen Delivers Stronger Second Quarter and First Half 2025 Financial Results with Reduced Expenses and Growth Momentum - The Manila Times'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0424 for 'Abercrombie Kids adds Nordstrom, Dick’s Sporting Goods as wholesale partners - Retail Dive'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0320 for 'Freemans teams up with Mirakl to modernise dropship strategy - Retail Gazette'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0291 for 'Uniqlo names Cate Blanchett as global brand ambassador - Retail Gazette'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0280 for 'Saks Global Unifies Brands to Lead U.S. Luxury Retail Renaissance - AInvest'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0456 for '5 Things: Calling all Bigfeet, only the lonely, Aldi addiction and more - CSP Daily News'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0436 for 'Worldview | How Chinese E-Tailer JD.com Topped Sales Estimates - The Business of Fashion'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0397 for 'KLC INVESTOR ALERT: Bronstein, Gewirtz & Grossman LLC Announces that KinderCare Learning Companies, Inc. Investors with Substantial Losses Have Opportunity to Lead Class Action Lawsuit - PR Newswire'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.0371 for 'The Secret Business of Dressing Korean Celebrities - The Business of Fashion'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document evaluation completed in 0.00s: 0 documents kept
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | Sending initial curation status update for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🔍 Evaluating 17 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2642 for '[PDF] OTSUKA CORPORATION Integrated Report 2023'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2971 for '[PDF] 大塚商会 2025年 統合報告書'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.4548 for '大塚製薬（東証:4768）の有望な業績は、軟弱な基盤の上に成り立っ'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2337 for '[PDF] CORPORATE PROFILE 2023'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.3055 for '大塚商会は決算を逃す - しかしアナリストはモデルを更新した'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6459 for 'Who are the main competitors of Otsuka? - Patsnap Synapse'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6150 for '（株）ティーガイア Competitors - RocketReach'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.5847 for 'メドピア株式会社 Competitors - RocketReach'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.4211 for 'Bekker's Blog -- Redmond Channel Partner'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.1144 for '[PDF] The Hunt The Book - PDF Library'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.3411 for '[PDF] 2023年 統合報告書 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.3024 for '[PDF] 2024年 統合報告書 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2316 for '[PDF] 2022年 統合報告書 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2302 for 'Tokyo DX Collection 2025春 | 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.4114 for 'Non-Fungible Token Market Size 2025-2029 - Technavio'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2969 for '[PDF] Fact Book 2001 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ❌ Document below threshold with score 0.2497 for '[PDF] CORPORATE PROFILE 2025'
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document evaluation completed in 0.00s: 6 documents kept
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Kept 6 documents for industry with scores above threshold
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | Sending initial curation status update for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🔍 Evaluating 20 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6875 for '大塚商会: ホームページ'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6263 for 'ソリューション・サービス - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6164 for 'ソリューション・製品 | 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.5135 for '製品ごとに便利に使う - お客様マイページ - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.4957 for '大塚商会 | CFN (CareerForum.Net)'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8066 for '沿革 - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.7712 for '[PDF] 大塚商会の歴史は常にお客様とともに 歩んできた歴史です。'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.7039 for '大塚商会 - Wikipedia'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6125 for '大塚商会60年史'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6125 for '[PDF] 大塚商会 60年 史'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8750 for '大塚商会【4768】の社長・役員 - キタイシホン'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8440 for '大塚商会の役員・ガバナンス - 4768 / プライム / 情報・通信業'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8396 for '会社概要 - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8152 for '組織変更及び人事異動に関するお知らせ（2025年7月1日付）'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8142 for '4768 大塚商会 | 役員の状況 - IR BANK'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.8074 for '[PDF] 中・長期経営方針 - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.7835 for '【対談】企業理念と経営戦略は会社を支える両輪だ ... - 大塚商会'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.7249 for '大塚商会AIが半年で7万件以上の商談を提案 - dotData'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6819 for '【コラム】経営戦略は経営理念に従う | 大塚商会のERPナビ'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document passed threshold with score 0.6296 for '【IRから読み解く】大塚商会 DX推進における顧客の課題解決に注力'
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Document evaluation completed in 0.00s: 20 documents kept
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | ✅ Kept 20 documents for company with scores above threshold
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Starting to process references from search results
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/, Score=0.8750
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/solution/, Score=0.8440
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/products/, Score=0.8396
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://mypage.otsuka-shokai.co.jp/products-page, Score=0.8152
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://careerforum.net/ja/event/ons/companylist_73/58/original/5/, Score=0.8142
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/about/history/, Score=0.8074
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf, Score=0.8066
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A, Score=0.7835
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/about/history/60years/, Score=0.7712
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf, Score=0.7249
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://kitaishihon.com/company/4768/board-of-director, Score=0.7039
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.buffett-code.com/company/4768/governance, Score=0.6875
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/about/outline/, Score=0.6819
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/release/2025/250624.html, Score=0.6296
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://irbank.net/E05099/officer, Score=0.6263
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/corporate/ir/media/keieij20230724.pdf, Score=0.6164
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-talk/, Score=0.6125
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://jp.dotdata.com/resources/case-study/how-otsuka-shokai-increased-their-business-deals/, Score=0.6125
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-column-01/, Score=0.5135
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_company_data: URL=https://partnersuccess.jp/media/OtsukaCorp-IR-strategy, Score=0.4957
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://sp.otsuka-shokai.co.jp/english/corporate/ir/media/intege2023p.pdf, Score=0.6459
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://www.otsuka-shokai.co.jp/corporate/ir/media/integj2025p.pdf, Score=0.6150
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/88b93d3b6861cfe9, Score=0.5847
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://www.otsuka-shokai.co.jp/english/corporate/about/media/20231025-otsuka-corporation.pdf, Score=0.4548
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/5f2ac0bb7341c573, Score=0.4211
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found reference in curated_industry_data: URL=https://synapse.patsnap.com/article/who-are-the-main-competitors-of-otsuka, Score=0.4114
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Collected a total of 26 references before deduplication
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Top 20 references by score before deduplication:
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 1. Score: 0.8750 - URL: https://www.otsuka-shokai.co.jp/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 2. Score: 0.8440 - URL: https://www.otsuka-shokai.co.jp/solution/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 3. Score: 0.8396 - URL: https://www.otsuka-shokai.co.jp/products/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 4. Score: 0.8152 - URL: https://mypage.otsuka-shokai.co.jp/products-page
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 5. Score: 0.8142 - URL: https://careerforum.net/ja/event/ons/companylist_73/58/original/5/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 6. Score: 0.8074 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 7. Score: 0.8066 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 8. Score: 0.7835 - URL: https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 9. Score: 0.7712 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history/60years/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 10. Score: 0.7249 - URL: https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 11. Score: 0.7039 - URL: https://kitaishihon.com/company/4768/board-of-director
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 12. Score: 0.6875 - URL: https://www.buffett-code.com/company/4768/governance
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 13. Score: 0.6819 - URL: https://www.otsuka-shokai.co.jp/corporate/about/outline/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 14. Score: 0.6459 - URL: https://sp.otsuka-shokai.co.jp/english/corporate/ir/media/intege2023p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 15. Score: 0.6296 - URL: https://www.otsuka-shokai.co.jp/corporate/release/2025/250624.html
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 16. Score: 0.6263 - URL: https://irbank.net/E05099/officer
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 17. Score: 0.6164 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/keieij20230724.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 18. Score: 0.6150 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/integj2025p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 19. Score: 0.6125 - URL: https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-talk/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 20. Score: 0.6125 - URL: https://jp.dotdata.com/resources/case-study/how-otsuka-shokai-increased-their-business-deals/
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/: '大塚商会: ホームページ'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp with score 0.8750
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/solution/: 'ソリューション・サービス - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/solution with score 0.8440
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/products/: 'ソリューション・製品 | 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/products with score 0.8396
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://mypage.otsuka-shokai.co.jp/products-page: '製品ごとに便利に使う - お客様マイページ - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://mypage.otsuka-shokai.co.jp/products-page with score 0.8152
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://careerforum.net/ja/event/ons/companylist_73/58/original/5/: '大塚商会 | CFN (CareerForum.Net)'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://careerforum.net/ja/event/ons/companylist_73/58/original/5 with score 0.8142
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/about/history/: '沿革 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/about/history with score 0.8074
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf: '[PDF] 大塚商会の歴史は常にお客様とともに 歩んできた歴史です。'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf with score 0.8066
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A: '大塚商会 - Wikipedia'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A with score 0.7835
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/about/history/60years/: '大塚商会60年史'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/about/history/60years with score 0.7712
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf: '[PDF] 大塚商会 60年 史'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf with score 0.7249
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://kitaishihon.com/company/4768/board-of-director: '大塚商会【4768】の社長・役員 - キタイシホン'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://kitaishihon.com/company/4768/board-of-director with score 0.7039
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.buffett-code.com/company/4768/governance: '大塚商会の役員・ガバナンス - 4768 / プライム / 情報・通信業'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.buffett-code.com/company/4768/governance with score 0.6875
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/about/outline/: '会社概要 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/about/outline with score 0.6819
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | No valid title found for URL https://sp.otsuka-shokai.co.jp/english/corporate/ir/media/intege2023p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://sp.otsuka-shokai.co.jp/english/corporate/ir/media/intege2023p.pdf with score 0.6459
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/release/2025/250624.html: '組織変更及び人事異動に関するお知らせ（2025年7月1日付）'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/release/2025/250624.html with score 0.6296
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://irbank.net/E05099/officer: '4768 大塚商会 | 役員の状況 - IR BANK'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://irbank.net/E05099/officer with score 0.6263
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/corporate/ir/media/keieij20230724.pdf: '[PDF] 中・長期経営方針 - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/ir/media/keieij20230724.pdf with score 0.6164
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | No valid title found for URL https://www.otsuka-shokai.co.jp/corporate/ir/media/integj2025p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/corporate/ir/media/integj2025p.pdf with score 0.6150
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-talk/: '【対談】企業理念と経営戦略は会社を支える両輪だ ... - 大塚商会'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-talk with score 0.6125
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://jp.dotdata.com/resources/case-study/how-otsuka-shokai-increased-their-business-deals/: '大塚商会AIが半年で7万件以上の商談を提案 - dotData'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://jp.dotdata.com/resources/case-study/how-otsuka-shokai-increased-their-business-deals with score 0.6125
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/88b93d3b6861cfe9: '大塚製薬（東証:4768）の有望な業績は、軟弱な基盤の上に成り立っ'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/88b93d3b6861cfe9 with score 0.5847
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-column-01/: '【コラム】経営戦略は経営理念に従う | 大塚商会のERPナビ'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-column-01 with score 0.5135
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://partnersuccess.jp/media/OtsukaCorp-IR-strategy: '【IRから読み解く】大塚商会 DX推進における顧客の課題解決に注力'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://partnersuccess.jp/media/OtsukaCorp-IR-strategy with score 0.4957
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | No valid title found for URL https://www.otsuka-shokai.co.jp/english/corporate/about/media/20231025-otsuka-corporation.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://www.otsuka-shokai.co.jp/english/corporate/about/media/20231025-otsuka-corporation.pdf with score 0.4548
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | No valid title found for URL https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/5f2ac0bb7341c573
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/5f2ac0bb7341c573 with score 0.4211
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found title for URL https://synapse.patsnap.com/article/who-are-the-main-competitors-of-otsuka: 'Who are the main competitors of Otsuka? - Patsnap Synapse'
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Stored reference info for https://synapse.patsnap.com/article/who-are-the-main-competitors-of-otsuka with score 0.4114
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Found 26 unique references after deduplication
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Unique references by score (sorted):
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 1. Score: 0.8750 - URL: https://www.otsuka-shokai.co.jp
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 2. Score: 0.8440 - URL: https://www.otsuka-shokai.co.jp/solution
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 3. Score: 0.8396 - URL: https://www.otsuka-shokai.co.jp/products
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 4. Score: 0.8152 - URL: https://mypage.otsuka-shokai.co.jp/products-page
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 5. Score: 0.8142 - URL: https://careerforum.net/ja/event/ons/companylist_73/58/original/5
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 6. Score: 0.8074 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 7. Score: 0.8066 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 8. Score: 0.7835 - URL: https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 9. Score: 0.7712 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history/60years
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 10. Score: 0.7249 - URL: https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 11. Score: 0.7039 - URL: https://kitaishihon.com/company/4768/board-of-director
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 12. Score: 0.6875 - URL: https://www.buffett-code.com/company/4768/governance
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 13. Score: 0.6819 - URL: https://www.otsuka-shokai.co.jp/corporate/about/outline
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 14. Score: 0.6459 - URL: https://sp.otsuka-shokai.co.jp/english/corporate/ir/media/intege2023p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 15. Score: 0.6296 - URL: https://www.otsuka-shokai.co.jp/corporate/release/2025/250624.html
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 16. Score: 0.6263 - URL: https://irbank.net/E05099/officer
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 17. Score: 0.6164 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/keieij20230724.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 18. Score: 0.6150 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/integj2025p.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 19. Score: 0.6125 - URL: https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-talk
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 20. Score: 0.6125 - URL: https://jp.dotdata.com/resources/case-study/how-otsuka-shokai-increased-their-business-deals
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 21. Score: 0.5847 - URL: https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/88b93d3b6861cfe9
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 22. Score: 0.5135 - URL: https://www.otsuka-shokai.co.jp/erpnavi/keiei-shien/oshiete/strategy-column-01
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 23. Score: 0.4957 - URL: https://partnersuccess.jp/media/OtsukaCorp-IR-strategy
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 24. Score: 0.4548 - URL: https://www.otsuka-shokai.co.jp/english/corporate/about/media/20231025-otsuka-corporation.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 25. Score: 0.4211 - URL: https://simplywall.st/ja/stocks/jp/software/tse-4768/otsuka-shares/news/5f2ac0bb7341c573
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 26. Score: 0.4114 - URL: https://synapse.patsnap.com/article/who-are-the-main-competitors-of-otsuka
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | Final top 10 references selected:
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 1. Score: 0.8750 - URL: https://www.otsuka-shokai.co.jp
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 2. Score: 0.8440 - URL: https://www.otsuka-shokai.co.jp/solution
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 3. Score: 0.8396 - URL: https://www.otsuka-shokai.co.jp/products
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 4. Score: 0.8152 - URL: https://mypage.otsuka-shokai.co.jp/products-page
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 5. Score: 0.8142 - URL: https://careerforum.net/ja/event/ons/companylist_73/58/original/5
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 6. Score: 0.8074 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 7. Score: 0.8066 - URL: https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 8. Score: 0.7835 - URL: https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 9. Score: 0.7712 - URL: https://www.otsuka-shokai.co.jp/corporate/about/history/60years
+2025-08-23 13:35:31 | INFO     | backend.utils.references  | 10. Score: 0.7249 - URL: https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🔗 Selected top 10 references for the report
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 🎯 Curation completed in 0.03s: 26/75 documents kept
+2025-08-23 13:35:31 | INFO     | backend.nodes.curator     | 📊 Document retention rate: 34.7%
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | 🚀 Starting briefing generation for 大塚商会
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | Creating section briefings for 大塚商会
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | No data available for financial_data
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | No data available for news_data
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | Processing industry_data with 6 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | Processing company_data with 20 documents
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | 📝 Generating industry briefing for 大塚商会 using 6 documents
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | Sending prompt to Azure OpenAI
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | 📝 Generating company briefing for 大塚商会 using 20 documents
+2025-08-23 13:35:31 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:35:31 | INFO     | backend.nodes.briefing    | Sending prompt to Azure OpenAI
+2025-08-23 13:36:01 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:36:01 | INFO     | backend.nodes.briefing    | ✅ industry briefing generated in 29.97 seconds
+2025-08-23 13:36:01 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:01 | INFO     | backend.nodes.briefing    | ✅ Completed industry_data briefing (2141 characters)
+2025-08-23 13:36:06 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:36:06 | INFO     | backend.nodes.briefing    | ✅ company briefing generated in 35.60 seconds
+2025-08-23 13:36:06 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:06 | INFO     | backend.nodes.briefing    | ✅ Completed company_data briefing (2065 characters)
+2025-08-23 13:36:06 | INFO     | backend.nodes.briefing    | 🎯 Generated 2/2 briefings
+2025-08-23 13:36:06 | INFO     | backend.nodes.briefing    | 📊 Total content length: 4206 characters
+2025-08-23 13:36:06 | INFO     | backend.nodes.briefing    | ⏱️  Total briefing generation time: 35.60 seconds
+2025-08-23 13:36:06 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | 📝 Starting report compilation for 大塚商会
+2025-08-23 13:36:06 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:06 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:06 | ERROR    | backend.nodes.editor      | Missing state key: financial_briefing
+2025-08-23 13:36:06 | ERROR    | backend.nodes.editor      | Missing state key: news_briefing
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | 🚀 Starting final report editing for 大塚商会
+2025-08-23 13:36:06 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | Found 10 references to add during compilation
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | Reference info from state: {}
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | Reference titles from state: {}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Formatting 10 references for the report
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp', 'url': 'https://www.otsuka-shokai.co.jp', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp/solution: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp/solution, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp/solution, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp/solution', 'url': 'https://www.otsuka-shokai.co.jp/solution', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp/products: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp/products, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp/products, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp/products', 'url': 'https://www.otsuka-shokai.co.jp/products', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://mypage.otsuka-shokai.co.jp/products-page: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://mypage.otsuka-shokai.co.jp/products-page, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://mypage.otsuka-shokai.co.jp/products-page, extracted: Mypage
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Mypage', 'title': 'https://mypage.otsuka-shokai.co.jp/products-page', 'url': 'https://mypage.otsuka-shokai.co.jp/products-page', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://careerforum.net/ja/event/ons/companylist_73/58/original/5: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://careerforum.net/ja/event/ons/companylist_73/58/original/5, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://careerforum.net/ja/event/ons/companylist_73/58/original/5, extracted: Careerforum
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Careerforum', 'title': 'https://careerforum.net/ja/event/ons/companylist_73/58/original/5', 'url': 'https://careerforum.net/ja/event/ons/companylist_73/58/original/5', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp/corporate/about/history: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp/corporate/about/history, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp/corporate/about/history, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp/corporate/about/history', 'url': 'https://www.otsuka-shokai.co.jp/corporate/about/history', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf', 'url': 'https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A, extracted: Ja
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Ja', 'title': 'https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A', 'url': 'https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://www.otsuka-shokai.co.jp/corporate/about/history/60years: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://www.otsuka-shokai.co.jp/corporate/about/history/60years, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://www.otsuka-shokai.co.jp/corporate/about/history/60years, extracted: Otsuka-shokai
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Otsuka-shokai', 'title': 'https://www.otsuka-shokai.co.jp/corporate/about/history/60years', 'url': 'https://www.otsuka-shokai.co.jp/corporate/about/history/60years', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Using title from reference_titles for https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf: ''
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No title found for https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf, using URL as title
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | No website name found for https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf, extracted: Sp
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Created reference entry: {'website': 'Sp', 'title': 'https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf', 'url': 'https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf', 'domain': '', 'score': 0}
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Maintaining reference order based on scores
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Information from Otsuka-shokai." https://www.otsuka-shokai.co.jp
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Solution." https://www.otsuka-shokai.co.jp/solution
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Products." https://www.otsuka-shokai.co.jp/products
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Mypage. "Products Page." https://mypage.otsuka-shokai.co.jp/products-page
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Careerforum. "Ja - Event - Ons - Companylist 73 - 58 - Original - 5." https://careerforum.net/ja/event/ons/companylist_73/58/original/5
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Corporate - About - History." https://www.otsuka-shokai.co.jp/corporate/about/history
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Corporate - Ir - Media - Jh42 03.pdf." https://www.otsuka-shokai.co.jp/corporate/ir/media/jh42-03.pdf
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Ja. "Wiki - %e5%a4%a7%e5%a1%9a%e5%95%86%e4%bc%9a." https://ja.wikipedia.org/wiki/%E5%A4%A7%E5%A1%9A%E5%95%86%E4%BC%9A
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Otsuka-shokai. "Corporate - About - History - 60years." https://www.otsuka-shokai.co.jp/corporate/about/history/60years
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Added reference: * Sp. "Corporate - About - History - 60years - Pdf - 00.pdf." https://sp.otsuka-shokai.co.jp/corporate/about/history/60years/pdf/00.pdf
+2025-08-23 13:36:06 | INFO     | backend.utils.references  | Completed references section with 10 entries
+2025-08-23 13:36:06 | INFO     | backend.nodes.editor      | Added 10 references during compilation
+2025-08-23 13:36:34 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:36:34 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:36:34 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:37:00 | INFO     | httpx                     | HTTP Request: POST https://lab-teama.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-08-23 13:37:00 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | ✅ Final report compiled in 54.24 seconds with 3908 characters
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | Final report preview:
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | # 大塚商会 Research Report
+
+## Company Overview
+
+### Core Products/Services
+
+* システムインテグレーション（大規模・中堅企業向けの設計・構築）。自社ERP「SMILE」シリーズおよび100%子会社のソフトウェア開発子会社（OSK）による開発力を保有。
+* IT運用・サポート（「たよれーる」ブランド）：運用代行、バックアップ・BCP、セキュリティ対策、IT運用管理代行（らくらくオフィス）などのアウトソーシングサービス。
+* 法人向け通販（「たのめーる」）：備品・消耗品のトランザクション型調達。個人向け「ぱーそなるたのめーる」や介護用品「ケアたのめーる」も展開。
+* クラウド・プラットフォーム連携：Microsoft、Apple、Oracle等の製品導入支援、WasabiやDropbox等とのクラウドストレージ連携。
+* ソリューション＆新技術：AI・IoT、RPA導入支援、テレビ会議・CTI、複合機・プリンターの導入・サポート、営業データを活用したAIによる商談提案など。
+
+### Leadership
+
+* 大塚裕司
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | Report length in state: 3908
+2025-08-23 13:37:00 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | Successfully compiled report with 3908 characters
+2025-08-23 13:37:00 | INFO     | backend.nodes.editor      | ⏱️  Briefing compilation completed in 54.25 seconds
+2025-08-23 13:37:00 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b
+2025-08-23 13:37:00 | INFO     | backend.graph             | ✅ Research workflow completed in 130.62 seconds
+2025-08-23 13:37:00 | INFO     | backend.graph             | ⏰ Workflow completed at: 13:37:00
+2025-08-23 13:37:00 | INFO     | root                      | ✅ Research completed successfully for 大塚商会
+2025-08-23 13:37:00 | INFO     | root                      | ⏱️  Total execution time: 131.63 seconds
+2025-08-23 13:37:00 | INFO     | root                      | 📊 Report length: 3908 characters
+2025-08-23 13:37:00 | INFO     | root                      | 🕐 Completed at: 13:37:00
+2025-08-23 13:37:00 | WARNING  | backend.services.websocket_manager | No active connections for job 824ceb2b-700b-43d3-a553-3d4dfb23935b

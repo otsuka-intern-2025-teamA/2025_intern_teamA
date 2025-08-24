@@ -11,6 +11,13 @@ from lib.company_analysis.data import SearchHit
 from lib.company_analysis.llm import company_briefing
 from lib.company_analysis.ui import render_report
 
+# 共通スタイルモジュールのインポート
+from lib.styles import (
+    apply_main_styles, 
+    apply_logo_styles,
+    apply_scroll_script
+)
+
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
@@ -97,82 +104,31 @@ def run_search(query: str, count: int = 8, freshness: str = "Month") -> List[Sea
 def render_company_analysis_page():
     """企業分析ページをレンダリング"""
     
-    # ページの最上部にスクロールするJavaScriptとCSS
-    st.markdown("""
-    <style>
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 100% !important;
-    }
-    header[data-testid="stHeader"] { height: 0px; }
-    section[data-testid="stSidebar"] { display:none !important; }
+    # 共通スタイルを適用（案件一覧ページと同じ）
+    apply_main_styles()
+    apply_scroll_script()
     
-    /* 動的タイトルのスタイル調整 */
-    .dynamic-title {
-        font-size: 2rem !important;
-        line-height: 1.3 !important;
-        font-weight: 700 !important;
-        color: #262730 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-    }
-    
-    /* 長いタイトル用の調整 */
-    .stApp h1 {
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-        line-height: 1.3 !important;
-    }
-    </style>
-    <script>
-    // 複数の方法でページトップにスクロール
-    setTimeout(function() {
-        window.scrollTo(0, 0);
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({top: 0, behavior: 'instant'});
-    }, 100);
-    </script>
-    """, unsafe_allow_html=True)
-    
-    # タイトルとロゴを横並びで表示
+    # タイトルとロゴを横並びで表示（案件一覧ページと同じ比率）
     header_col1, header_col2 = st.columns([3, 0.5])
     
     with header_col1:
-        # 動的タイトルを表示
+        # 動的タイトルを表示（位置を上に調整）
         if st.session_state.get("selected_project"):
             project_data = st.session_state.selected_project
-            # 案件名と企業名を含むタイトル
+            # 案件名と企業名を含むタイトル（案件一覧ページと同じスタイル）
             st.title(f"{project_data['title']} - {project_data['company']}の分析")
             default_company = project_data.get('company', '')
         else:
-            # デフォルトタイトル
+            # デフォルトタイトル（案件一覧ページと同じスタイル）
             st.title("企業分析")
             default_company = ""
     
     with header_col2:
-        # ロゴを右上に配置
+        # ロゴを右上に配置（案件一覧ページと同じ高さに調整）
         st.markdown("")  # 少し下にスペース
-        st.markdown("")  # さらに下にスペース
         try:
-            # ロゴ画像を表示（角丸を無効化、サイズを統一）
-            st.markdown("""
-            <style>
-            /* ロゴ画像の角丸を完全に無効化 */
-            .stImage img {
-                border-radius: 0 !important;
-                border: none !important;
-            }
-            /* Streamlitのデフォルトスタイルを上書き */
-            [data-testid="stImage"] img {
-                border-radius: 0 !important;
-                border: none !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            # ロゴ画像を表示（共通スタイルモジュールから適用）
+            apply_logo_styles()
             st.image(str(LOGO_PATH), width=160, use_container_width=False)
         except FileNotFoundError:
             st.info(f"ロゴ画像が見つかりません: {LOGO_PATH}")

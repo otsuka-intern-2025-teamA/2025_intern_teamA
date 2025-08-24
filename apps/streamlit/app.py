@@ -5,6 +5,12 @@ from datetime import datetime
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
+
+# 企業分析モジュールのインポート
+from company_analysis_module import render_company_analysis_page
+
+# 共通スタイルモジュールのインポート
+from lib.styles import apply_main_styles, apply_logo_styles
 ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
 # ---- ページ設定（最初に実行）
@@ -17,45 +23,11 @@ st.set_page_config(
 )
 
 
-st.markdown(
-"""
-<style>
-/* サイドバー/ヘッダを非表示 */
-section[data-testid="stSidebar"] { display:none !important; }
-div[data-testid="stSidebarNav"] { display:none !important; }
-[data-testid="collapsedControl"] { display:none !important; }
-header[data-testid="stHeader"] { height: 0px; }
-.block-container { 
-    padding-top: 2rem !important; 
-    padding-bottom: 2rem !important;
-    max-width: 100% !important;
-}
-
-
-/* container(border=True) をカード風に */
-div[data-testid="stVerticalBlockBorderWrapper"] {
-border: 1px solid #E6E6E6 !important;
-border-radius: 16px !important;
-padding: 16px 16px 12px 16px !important;
-box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
-background: #FFFFFF !important;
-margin: 0 !important;
-}
-/* カード内のタイポ/タグ */
-.title { font-weight: 900; font-size: 1.2rem; margin: 0 0 1px 0; line-height: 1.2; display:flex; align-items:center; gap:8px; }
-.tag { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#F3F6FF; color:#2B59FF; font-size:0.8rem; line-height:1.2; white-space:nowrap; }
-.company { font-size: 1.05rem; margin: 0 0 4px 0; font-weight: 600; }
-.meta { font-size: 0.95rem; line-height: 1.6; margin: 0; }
-</style>
-""",
-unsafe_allow_html=True,
-)
+# ---- 共通スタイル適用
+apply_main_styles()
 
 # API クライアントのインポート
 from lib.api import get_api_client, api_available, format_date, APIError
-
-# 企業分析モジュールのインポート
-from company_analysis_module import render_company_analysis_page
 
 # ---- セッション初期化（※インデント必須）
 if "selected_project" not in st.session_state:
@@ -239,21 +211,8 @@ else:
         st.markdown("")  # 少し下にスペース
         st.markdown("")  # さらに下にスペース
         try:
-            # 定義済みのロゴパスを使用（角丸を無効化、サイズを大きく）
-            st.markdown("""
-            <style>
-            /* ロゴ画像の角丸を完全に無効化 */
-            .stImage img {
-                border-radius: 0 !important;
-                border: none !important;
-            }
-            /* Streamlitのデフォルトスタイルを上書き */
-            [data-testid="stImage"] img {
-                border-radius: 0 !important;
-                border: none !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            # 定義済みのロゴパスを使用（共通スタイルモジュールから適用）
+            apply_logo_styles()
             st.image(str(LOGO_PATH), width=160, use_container_width=False)
         except FileNotFoundError:
             st.info(f"ロゴ画像が見つかりません: {LOGO_PATH}")

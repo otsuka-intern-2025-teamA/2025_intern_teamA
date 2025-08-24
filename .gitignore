@@ -7,3 +7,9 @@
 # CSVデータファイル
 data/csv/products/DatasetA/*.csv
 data/csv/products/DatasetB/*.csv
+
+# 特定ディレクトリのpycache
+**/__pycache__/**
+
+# mypy cache
+.mypy_cache/

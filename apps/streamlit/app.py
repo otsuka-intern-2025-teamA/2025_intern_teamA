@@ -44,7 +44,7 @@ try:
 except Exception:
     st.set_page_config(
         page_title="案件一覧",
-        page_icon="data/images/otsuka_icon.png",
+        page_icon="../../data/images/otsuka_icon.png",
         layout="wide",
         initial_sidebar_state="collapsed",
         menu_items={"Get Help": None, "Report a bug": None, "About": None}
@@ -213,7 +213,7 @@ with header_col2:
     st.markdown("")  # 少し下にスペース
     st.markdown("")  # さらに下にスペース
     try:
-        st.image("data/images/otsuka_logo.jpg", width=120)  # サイズを少し小さく
+        st.image("../../data/images/otsuka_logo.jpg", width=120)  # サイズを少し小さく
     except FileNotFoundError:
         st.info("ロゴ画像を配置してください")
     except Exception:

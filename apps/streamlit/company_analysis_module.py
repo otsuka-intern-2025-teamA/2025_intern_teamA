@@ -2,13 +2,16 @@
 企業分析モジュール
 app.py と並列に配置して、サイドバーなしで動作
 """
-import os, requests, json
+import requests
 import streamlit as st
 from typing import List
 from pathlib import Path
 from lib.company_analysis.config import get_settings
 from lib.company_analysis.data import SearchHit
-from lib.company_analysis.llm import company_briefing
+from lib.company_analysis.llm import (
+    company_briefing_with_web_search,
+    company_briefing_without_web_search
+)
 from lib.company_analysis.ui import render_report
 
 # 共通スタイルモジュールのインポート
@@ -22,55 +25,11 @@ from lib.styles import (
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
 
-@st.cache_data(show_spinner=False)
-def bing_search(query: str, count: int = 6, freshness: str = "Month") -> List[SearchHit]:
-    """Simple Bing Web Search wrapper (web pages + news)."""
-    settings = get_settings()
-    key = settings.bing_search_key
-    hits: List[SearchHit] = []
-    if not key:
-        return hits
-
-    headers = {"Ocp-Apim-Subscription-Key": key}
-    params = {"q": query, "mkt": "ja-JP", "count": count, "freshness": freshness, "textDecorations": False}
-
-    # Web search
-    r = requests.get("https://api.bing.microsoft.com/v7.0/search", headers=headers, params=params, timeout=15)
-    if r.status_code == 200:
-        data = r.json()
-        for item in (data.get("webPages", {}) or {}).get("value", []):
-            hits.append(SearchHit(
-                title=item.get("name", ""),
-                url=item.get("url", ""),
-                snippet=item.get("snippet", ""),
-                published=None
-            ))
-
-    # News search (optional add)
-    rn = requests.get("https://api.bing.microsoft.com/v7.0/news/search", headers=headers,
-                      params={"q": query, "mkt": "ja-JP", "count": 6, "freshness": freshness}, timeout=15)
-    if rn.status_code == 200:
-        data = rn.json()
-        for item in data.get("value", []):
-            date_p = item.get("datePublished", "")
-            url = (item.get("url") or "")
-            title = item.get("name", "")
-            snippet = item.get("description", "")
-            hits.append(SearchHit(title=title, url=url, snippet=snippet, published=date_p))
-
-    # Deduplicate by URL
-    seen = set()
-    uniq = []
-    for h in hits:
-        if h.url and h.url not in seen:
-            seen.add(h.url)
-            uniq.append(h)
-    return uniq[: max(count, 6)]
 
 @st.cache_data(show_spinner=False)
 def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     """
-    Tavily search fallback (if BING_SEARCH_KEY is not set). Requires TAVILY_API_KEY in env.
+    Tavily search for web information. Requires TAVILY_API_KEY in env.
     """
     settings = get_settings()
     key = settings.tavily_api_key
@@ -81,7 +40,13 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     r = requests.post(
         "https://api.tavily.com/search",
         headers={"Content-Type": "application/json"},
-        json={"api_key": key, "query": query, "max_results": count, "include_answer": False, "search_depth": "advanced"},
+        json={
+            "api_key": key,
+            "query": query,
+            "max_results": count,
+            "include_answer": False,
+            "search_depth": "advanced"
+        },
         timeout=20
     )
     if r.status_code == 200:
@@ -95,11 +60,11 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
             ))
     return hits
 
-def run_search(query: str, count: int = 8, freshness: str = "Month") -> List[SearchHit]:
-    hits = bing_search(query, count=count, freshness=freshness)
-    if not hits:
-        hits = tavily_search(query, count=count)
-    return hits
+
+def run_search(query: str, count: int = 8) -> List[SearchHit]:
+    """Web検索を実行（tavily）"""
+    return tavily_search(query, count=count)
+
 
 def render_company_analysis_page():
     """企業分析ページをレンダリング"""
@@ -148,26 +113,81 @@ def render_company_analysis_page():
     with col1:
         top_k = st.number_input("検索結果件数", 1, 10, 6, 1)
     with col2:
-        freshness = st.selectbox("ニュースの鮮度", ["Day", "Week", "Month"], index=2)
+        use_web_search = st.checkbox(
+            "Web検索を使用",
+            value=True,
+            help=(
+                "チェックすると企業名でWeb検索を実行し、"
+                "その結果とユーザー入力をもとに分析します。"
+                "チェックしない場合はユーザー入力のみを使用します。"
+            )
+        )
 
     company = st.text_input("企業名", value=default_company)
+    
+    # ユーザー入力フィールド（web検索を使用しない場合に重要）
+    if not use_web_search:
+        user_input = st.text_area(
+            "分析したい内容や質問を入力してください",
+            placeholder="例：この企業の強みは何ですか？市場での競争力はどうですか？",
+            help="Web検索を使用しない場合、この入力内容をもとにLLMが分析を行います。"
+        )
+    else:
+        user_input = ""
+    
     run = st.button("調べる")
 
     if run and company.strip():
-        st.info("検索中…")
-        hits = run_search(company.strip(), count=int(top_k), freshness=freshness)
+        if use_web_search:
+            # Web検索を使用する場合
+            st.info("Web検索中…")
+            try:
+                hits = run_search(company.strip(), count=int(top_k))
 
-        if not hits:
-            st.error("検索結果が見つかりませんでした。BING_SEARCH_KEY または TAVILY_API_KEY を設定してください。")
-            return
+                if not hits:
+                    st.error(
+                        "検索結果が見つかりませんでした。"
+                        "TAVILY_API_KEY を設定してください。"
+                    )
+                    return
 
-        st.success(f"検索ヒット: {len(hits)} 件")
-        with st.expander("根拠（検索スニペット）を見る", expanded=False):
-            for h in hits:
-                pub = f"（{h.published}）" if h.published else ""
-                st.markdown(f"- **{h.title}** {pub}\n  \n  {h.snippet}\n  \n  {h.url}")
+                st.success(f"検索ヒット: {len(hits)} 件")
+                with st.expander("根拠（検索スニペット）を見る", expanded=False):
+                    for h in hits:
+                        pub = f"（{h.published}）" if h.published else ""
+                        st.markdown(
+                            f"- **{h.title}** {pub}\n  \n  {h.snippet}\n  \n  {h.url}"
+                        )
 
-        with st.spinner("LLMで要約中…"):
-            report = company_briefing(company.strip(), hits)
+                with st.spinner("LLMで要約中…"):
+                    report = company_briefing_with_web_search(company.strip(), hits)
+                    
+            except Exception as e:
+                st.error(f"Web検索中にエラーが発生しました: {str(e)}")
+                return
+        else:
+            # Web検索を使用しない場合
+            if not user_input.strip():
+                st.error(
+                    "Web検索を使用しない場合は、"
+                    "分析したい内容や質問を入力してください。"
+                )
+                return
+                
+            with st.spinner("LLMで分析中…"):
+                try:
+                    report = company_briefing_without_web_search(
+                        company.strip(),
+                        user_input.strip()
+                    )
+                except Exception as e:
+                    st.error(f"LLM分析中にエラーが発生しました: {str(e)}")
+                    return
 
-        render_report(report)
+        # レポートの表示
+        try:
+            render_report(report)
+        except Exception as e:
+            st.error(f"レポート表示中にエラーが発生しました: {str(e)}")
+            st.write("エラーが発生しましたが、以下が取得できました:")
+            st.json(report.to_dict() if hasattr(report, 'to_dict') else str(report))

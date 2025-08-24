@@ -1,10 +1,10 @@
 import streamlit as st
-from datetime import date, datetime
-import re
+from pathlib import Path
 
-import streamlit as st
-from datetime import date, datetime
-import re
+# 画像ファイルのパス定義
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
+ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
 
 st.markdown(
@@ -44,7 +44,7 @@ try:
 except Exception:
     st.set_page_config(
         page_title="案件一覧",
-        page_icon="../../data/images/otsuka_icon.png",
+        page_icon=str(ICON_PATH),
         layout="wide",
         initial_sidebar_state="collapsed",
         menu_items={"Get Help": None, "Report a bug": None, "About": None}
@@ -213,11 +213,12 @@ with header_col2:
     st.markdown("")  # 少し下にスペース
     st.markdown("")  # さらに下にスペース
     try:
-        st.image("../../data/images/otsuka_logo.jpg", width=120)  # サイズを少し小さく
+        # 定義済みのロゴパスを使用
+        st.image(str(LOGO_PATH), width=120)  # サイズを少し小さく
     except FileNotFoundError:
-        st.info("ロゴ画像を配置してください")
-    except Exception:
-        st.warning("ロゴの読み込みエラー")
+        st.info(f"ロゴ画像が見つかりません: {LOGO_PATH}")
+    except Exception as e:
+        st.warning(f"ロゴの読み込みエラー: {e}")
 
 # 新規作成ボタンをより右に配置
 st.markdown("")  # 少しスペースを追加

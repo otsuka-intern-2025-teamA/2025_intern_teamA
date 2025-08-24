@@ -1,8 +1,8 @@
 # llm.py
 import os, json
 from typing import List
-from data import SearchHit, CompanyReport
-from config import get_settings
+from .data import SearchHit, CompanyReport
+from .config import get_settings
 from openai import OpenAI, AzureOpenAI, APIStatusError
 
 def get_client():
@@ -19,7 +19,7 @@ def company_briefing(company: str, hits: List[SearchHit]) -> CompanyReport:
     s = get_settings()
     client = get_client()
 
-    # Azureは“デプロイ名”が必須
+    # Azureは"デプロイ名"が必須
     if s.use_azure:
         model_name = s.azure_chat_deployment
         if not model_name:

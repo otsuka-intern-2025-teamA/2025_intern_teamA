@@ -1,6 +1,5 @@
-
 import streamlit as st
-from data import CompanyReport
+from .data import CompanyReport
 
 def render_report(report: CompanyReport):
     st.subheader(f"📄 {report.company} 企業ブリーフィング")

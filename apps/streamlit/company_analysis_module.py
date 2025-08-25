@@ -6,13 +6,11 @@ import requests
 import streamlit as st
 from typing import List
 from pathlib import Path
-from lib.company_analysis.config import get_settings
 from lib.company_analysis.data import SearchHit
 from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search
 )
-from lib.company_analysis.ui import render_report
 
 # ★ 追加：APIクライアント（履歴の保存/復元に使用）
 from lib.api import get_api_client, APIError  # ← 追加
@@ -34,7 +32,6 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     """
     Tavily search for web information. Requires TAVILY_API_KEY in env.
     """
-    settings = get_settings()
     key = "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"
     hits: List[SearchHit] = []
     if not key:
@@ -110,8 +107,6 @@ def render_company_analysis_page():
         st.session_state.current_page = "案件一覧"
         st.session_state.page_changed = True  # ページ変更フラグを設定
         st.rerun()
-    
-    st.write("会社名を入力すると、公開Web情報からLLMが日本語でブリーフィングを作成します。")
 
     # ---- ここから、フォーム/チャットの切替（既定はフォームモード）----
     mode = st.radio("モード", ["フォーム", "チャット"], index=0, horizontal=True)
@@ -164,15 +159,21 @@ def render_company_analysis_page():
                         return
 
                     st.success(f"検索ヒット: {len(hits)} 件")
-                    with st.expander("根拠（検索スニペット）を見る", expanded=False):
+                    with st.expander(
+                        "根拠（検索スニペット）を見る", 
+                        expanded=False
+                    ):
                         for h in hits:
                             pub = f"（{h.published}）" if h.published else ""
                             st.markdown(
-                                f"- **{h.title}** {pub}\n  \n  {h.snippet}\n  \n  {h.url}"
+                                f"- **{h.title}** {pub}\n  \n  "
+                                f"{h.snippet}\n  \n  {h.url}"
                             )
 
                     with st.spinner("LLMで要約中…"):
-                        report = company_briefing_with_web_search(company.strip(), hits)
+                        report = company_briefing_with_web_search(
+                            company.strip(), hits
+                        )
                         
                 except Exception as e:
                     st.error(f"Web検索中にエラーが発生しました: {str(e)}")
@@ -198,11 +199,14 @@ def render_company_analysis_page():
 
             # レポートの表示
             try:
-                render_report(report)
+                st.markdown(str(report))
             except Exception as e:
                 st.error(f"レポート表示中にエラーが発生しました: {str(e)}")
                 st.write("エラーが発生しましたが、以下が取得できました:")
-                st.json(report.to_dict() if hasattr(report, 'to_dict') else str(report))
+                st.json(
+                    report.to_dict() if hasattr(report, 'to_dict') 
+                    else str(report)
+                )
 
     # =========================
     #  B) チャットモード（追加）
@@ -213,11 +217,13 @@ def render_company_analysis_page():
             st.session_state.chat_messages = []
         # 案件があればサーバから復元（案件切替時のみ）
         api = get_api_client()
-        if item_id is not None and st.session_state.get("chat_loaded_item_id") != item_id:
+        if (item_id is not None and 
+                st.session_state.get("chat_loaded_item_id") != item_id):
             try:
                 msgs = api.get_item_messages(item_id)
                 st.session_state.chat_messages = [
-                    {"role": m.get("role", "assistant"), "content": m.get("content", "")}
+                    {"role": m.get("role", "assistant"), 
+                     "content": m.get("content", "")}
                     for m in msgs or []
                 ]
             except APIError as e:
@@ -234,42 +240,64 @@ def render_company_analysis_page():
         # --- 送信欄 ---
         prompt = st.chat_input("この企業について知りたいことを入力…")
         if prompt:
-            # 1) ユーザー発言（画面 & サーバ保存）
-            st.session_state.chat_messages.append({"role": "user", "content": prompt})
+            # 1) ユーザー発言を即座に表示
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # 2) ユーザー発言を履歴 & サーバに保存
+            st.session_state.chat_messages.append(
+                {"role": "user", "content": prompt}
+            )
             if item_id is not None:
                 try:
                     api.post_item_message(item_id, "user", prompt)
                 except Exception as e:
                     st.error(f"サーバ保存に失敗しました（user）: {e}")
 
-            # 2) LLM呼び出し（フォームと同じロジックを1ターンで実行）
+            # 3) LLM呼び出し（フォームと同じロジックを1ターンで実行）
             with st.chat_message("assistant"):
-                with st.spinner("🔎 Web検索→LLMで要約中…"):
-                    try:
-                        if use_web_search:
-                            hits = run_search((company or "").strip() or default_company, count=int(top_k))
+                try:
+                    if use_web_search:
+                        with st.spinner("Web検索→LLMで要約中…"):
+                            hits = run_search(
+                                (company or "").strip() or default_company, 
+                                count=int(top_k)
+                            )
                             if not hits:
-                                st.warning("検索結果が見つかりませんでした。TAVILY_API_KEY を設定してください。")
+                                st.warning(
+                                    "検索結果が見つかりませんでした。"
+                                    "TAVILY_API_KEY を設定してください。"
+                                )
                                 assistant_text = "検索結果が得られませんでした。"
                             else:
-                                report = company_briefing_with_web_search((company or "").strip() or default_company, hits)
+                                report = company_briefing_with_web_search(
+                                    (company or "").strip() or default_company, 
+                                    hits
+                                )
                                 # チャット内にレポートを直接描画
-                                render_report(report)
-                                assistant_text = f"レポートを生成しました（{len(hits)}件の検索に基づく）。"
-                        else:
+                                st.markdown(str(report))
+                                # レポート内容をそのまま履歴に保存
+                                assistant_text = str(report)
+                    else:
+                        with st.spinner("LLMで分析中…"):
                             if not company.strip():
                                 st.warning("企業名を入力してください。")
                                 assistant_text = "企業名が未入力です。"
                             else:
-                                report = company_briefing_without_web_search(company.strip(), prompt.strip())
-                                render_report(report)
-                                assistant_text = "レポートを生成しました（Web検索なし）。"
-                    except Exception as e:
-                        assistant_text = f"LLM分析中にエラーが発生しました: {e}"
-                        st.error(assistant_text)
+                                report = company_briefing_without_web_search(
+                                    company.strip(), prompt.strip()
+                                )
+                                st.markdown(str(report))
+                                # レポート内容をそのまま履歴に保存
+                                assistant_text = str(report)
+                except Exception as e:
+                    assistant_text = f"LLM分析中にエラーが発生しました: {e}"
+                    st.error(assistant_text)
 
-            # 3) アシスタント要約テキストを履歴/サーバに保存
-            st.session_state.chat_messages.append({"role": "assistant", "content": assistant_text})
+            # 4) アシスタントの出力内容を履歴/サーバに保存
+            st.session_state.chat_messages.append(
+                {"role": "assistant", "content": assistant_text}
+            )
             if item_id is not None:
                 try:
                     api.post_item_message(item_id, "assistant", assistant_text)

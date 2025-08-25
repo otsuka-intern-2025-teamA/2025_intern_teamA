@@ -41,20 +41,20 @@ otsuka_internship_teamA/
 │   ├── ddl/
 │   │   └── schema.sql             # データベーススキーマ
 │   ├── csv/                       # CSVデータ（商材・取引履歴）
-│   │   ├── products/
-│   │   │   ├── DatasetA/         # 商材データセットA
-│   │   │   └── DatasetB/         # 商材データセットB
-│   │   └── trade_history_dummy_100.csv  # サンプル取引履歴
+│   │   └── products/
+│   │       ├── DatasetA/          # 商材データセットA（空）
+│   │       ├── DatasetB/          # 商材データセットB（空）
+│   │       └── history.csv  # サンプル取引履歴
 │   ├── images/                    # アプリ画像
 │   │   ├── otsuka_icon.png       # アプリアイコン
 │   │   └── otsuka_logo.jpg       # ロゴ画像
 │   ├── templates/                 # テンプレートファイル
 │   │   └── proposal_template.pptx # 提案書テンプレート
 │   └── sqlite/
-│       └── app.db                 # SQLiteデータベース
-└── scripts/
-    ├── load_products.py           # 商材データローダー
-    └── load_history.py            # 取引履歴ローダー
+│       └── app.db                 # SQLiteデータベース（Git追跡外）
+├── scripts/                       # データ管理スクリプト
+│   └── check_db.py               # データベース内容確認ツール
+└── requirements.txt               # Python依存関係
 ```
 
 ## 🗄️ データベーススキーマ
@@ -85,14 +85,7 @@ otsuka_internship_teamA/
 pip install -r requirements.txt
 ```
 
-### 2. データベースの初期化
-
-```powershell
-# 商材データをロード
-python scripts/load_products.py --replace
-```
-
-### 3. アプリケーションの起動
+### 2. アプリケーションの起動
 
 **2つのターミナルで同時に起動してください：**
 
@@ -111,36 +104,21 @@ sorce .venv/bin/activate
 streamlit run apps\streamlit\app.py
 ```
 
-### 4. アクセス
+### 3. アクセス
 
 - **メインアプリ**: http://localhost:8501
 - **API管理画面**: http://localhost:8000/docs
 
 ## 📊 データ管理
 
-### 商材データのロード
+### データベース内容の確認
 
-```powershell
-# 全商材データを更新
-python scripts/load_products.py --replace
+```bash
+# 基本的な確認（サンプルデータ表示）
+python scripts/check_db.py
 
-# 商材データを追加更新
-python scripts/load_products.py --update
-```
-
-### 取引履歴のロード
-
-```powershell
-# 特定案件に取引履歴をロード
-python scripts/load_history.py --item <案件ID> --company "企業名"
-
-# 例：案件Aに株式会社〇〇の取引履歴をロード
-python scripts/load_history.py --item 3838d414-5018-4648-904f-37fd18902bde --company "株式会社〇〇"
-```
-
-案件IDの確認方法：
-```powershell
-python -c "import sqlite3; conn = sqlite3.connect('data/sqlite/app.db'); cursor = conn.cursor(); cursor.execute('SELECT id, title, company_name FROM items'); print(cursor.fetchall()); conn.close()"
+# 全てのデータを表示
+python scripts/check_db.py --all
 ```
 
 ## 🔧 API仕様
@@ -163,12 +141,3 @@ python -c "import sqlite3; conn = sqlite3.connect('data/sqlite/app.db'); cursor 
 
 - `POST /analysis/query` - 企業分析実行
 - `POST /analysis/history/load` - 取引履歴ロード
-
-## 🔍 データベース内容確認
-
-### 案件データの確認
-
-```powershell
-# 案件詳細（フル情報）
-python -c "import sqlite3; conn=sqlite3.connect('data/sqlite/app.db'); cursor=conn.cursor(); cursor.execute('SELECT * FROM items'); items=cursor.fetchall(); print('案件詳細:'); [print(f'ID:{item[0][:8]}... | {item[1]} | {item[2]} | {item[4]}') for item in items]; conn.close()"
-```

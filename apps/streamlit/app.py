@@ -9,6 +9,9 @@ LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
 # 企業分析モジュールのインポート
 from company_analysis_module import render_company_analysis_page
 
+# スライド生成モジュールのインポート
+from slide_generation_module import render_slide_generation_page
+
 # 共通スタイルモジュールのインポート
 from lib.styles import apply_main_styles, apply_logo_styles
 ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
@@ -60,9 +63,12 @@ def _switch_page(page_file: str, project_data=None):
         st.session_state.page_changed = True  # ページ変更フラグを設定
         st.rerun()
     elif page_file == "スライド作成":
-        # スライド作成機能はまだ未実装
-        st.error(f"ページ '{page_file}' はまだ実装されていません。")
-        st.info("この機能は現在開発中です。")
+        # スライド作成ページに遷移（セッションステートを使用）
+        st.session_state.current_page = "スライド作成"
+        if project_data:
+            st.session_state.selected_project = project_data
+        st.session_state.page_changed = True  # ページ変更フラグを設定
+        st.rerun()
     else:
         st.error(f"不明なページ: {page_file}")
         st.info("この機能は現在開発中です。")
@@ -181,6 +187,8 @@ else:
 # ---- ページルーティング
 if st.session_state.current_page == "企業分析":
     render_company_analysis_page()
+elif st.session_state.current_page == "スライド作成":
+    render_slide_generation_page()
 else:
     # デフォルトは案件一覧ページ
     st.session_state.current_page = "案件一覧"

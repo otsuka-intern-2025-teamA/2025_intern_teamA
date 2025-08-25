@@ -85,6 +85,15 @@ class APIClient:
     def create_message(self, item_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """新規メッセージを作成"""
         return self._make_request("POST", f"/items/{item_id}/messages", json=data)
+
+    # === フロント互換メソッド（チャット用） ===
+    def get_item_messages(self, item_id: int, skip: int = 0, limit: int = 100):
+        """案件(item_id)のチャット履歴を取得（フロント互換）"""
+        return self.get_messages(item_id=item_id, skip=skip, limit=limit)
+
+    def post_item_message(self, item_id: int, role: str, content: str):
+        """案件(item_id)のチャットメッセージを保存（フロント互換）"""
+        return self.create_message(item_id=item_id, data={"role": role, "content": content})
     
     # === 企業分析 API ===
     

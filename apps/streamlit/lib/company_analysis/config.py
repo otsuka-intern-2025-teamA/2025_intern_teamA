@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 
 # Load .env (override to ensure interactive changes win)
 load_dotenv(".env", override=True)
-
 API_VERSION = os.getenv("API_VERSION") or "2024-12-01-preview"
+
 
 
 @dataclass

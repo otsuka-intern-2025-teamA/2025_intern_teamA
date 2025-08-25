@@ -17,7 +17,9 @@ def get_client():
     return OpenAI(api_key=s.openai_api_key)
 
 
-def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> str:
+def company_briefing_with_web_search(
+    company: str, hits: List[SearchHit], context: str = ""
+) -> str:
     """Web検索結果を使用した企業分析"""
     s = get_settings()
     client = get_client()
@@ -64,6 +66,8 @@ def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> str
                 "## 次回打ち合わせでの質問案\n"
                 "## 参考リンク\n\n"
                 "各セクションは具体的で実用的な内容にしてください。"
+                "過去のチャット履歴がある場合は、それを参考にして"
+                "一貫性のある回答を心がけてください。"
             )
         },
         {
@@ -71,6 +75,7 @@ def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> str
             "content": (
                 f"企業名: {company}\n"
                 f"検索結果(証拠): {json.dumps(evidence, ensure_ascii=False)}\n"
+                f"{context if context else ''}"
                 "要件:\n"
                 "- 証拠に存在しない事実は書かない\n"
                 "- 相反情報は「両説」と日付を併記し、"
@@ -103,7 +108,9 @@ def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> str
     return content
 
 
-def company_briefing_without_web_search(company: str, user_input: str) -> str:
+def company_briefing_without_web_search(
+    company: str, user_input: str, context: str = ""
+) -> str:
     """Web検索なしでユーザー入力のみを使用した企業分析"""
     s = get_settings()
     client = get_client()
@@ -134,13 +141,16 @@ def company_briefing_without_web_search(company: str, user_input: str) -> str:
                 "## 推奨事項\n"
                 "## 次回打ち合わせでの質問案\n\n"
                 "各セクションは具体的で実用的な内容にしてください。"
+                "過去のチャット履歴がある場合は、それを参考にして"
+                "一貫性のある回答を心がけてください。"
             )
         },
         {
             "role": "user",
             "content": (
                 f"企業名: {company}\n"
-                f"ユーザーの質問・要望: {user_input}\n\n"
+                f"ユーザーの質問・要望: {user_input}\n"
+                f"{context if context else ''}\n\n"
                 "上記の質問・要望に基づいて、"
                 "企業分析に関するアドバイスをマークダウン形式で出力してください。"
             )
@@ -165,6 +175,8 @@ def company_briefing_without_web_search(company: str, user_input: str) -> str:
 
 
 # 後方互換性のため既存の関数名も保持
-def company_briefing(company: str, hits: List[SearchHit]) -> str:
+def company_briefing(
+    company: str, hits: List[SearchHit], context: str = ""
+) -> str:
     """後方互換性のための関数（company_briefing_with_web_searchと同じ）"""
-    return company_briefing_with_web_search(company, hits)
+    return company_briefing_with_web_search(company, hits, context)

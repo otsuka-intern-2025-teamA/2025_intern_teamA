@@ -270,9 +270,28 @@ def render_company_analysis_page():
                                 )
                                 assistant_text = "検索結果が得られませんでした。"
                             else:
+                                # 過去のチャット履歴を取得（新しい順）
+                                history_count = st.session_state.get(
+                                    "history_reference_count", 3
+                                )
+                                recent_history = (
+                                    st.session_state.chat_messages[-history_count*2:] 
+                                    if len(st.session_state.chat_messages) > 
+                                        history_count*2 
+                                    else st.session_state.chat_messages
+                                )
+                                
+                                # 履歴をコンテキストとして追加
+                                context = "過去のチャット履歴:\n"
+                                for msg in recent_history:
+                                    role = ("ユーザー" if msg["role"] == "user" 
+                                           else "アシスタント")
+                                    context += f"{role}: {msg['content']}\n\n"
+                                
                                 report = company_briefing_with_web_search(
                                     (company or "").strip() or default_company, 
-                                    hits
+                                    hits,
+                                    context
                                 )
                                 # チャット内にレポートを直接描画
                                 st.markdown(str(report))
@@ -284,8 +303,28 @@ def render_company_analysis_page():
                                 st.warning("企業名を入力してください。")
                                 assistant_text = "企業名が未入力です。"
                             else:
+                                # 過去のチャット履歴を取得（新しい順）
+                                history_count = st.session_state.get(
+                                    "history_reference_count", 3
+                                )
+                                recent_history = (
+                                    st.session_state.chat_messages[-history_count*2:] 
+                                    if len(st.session_state.chat_messages) > 
+                                        history_count*2 
+                                    else st.session_state.chat_messages
+                                )
+                                
+                                # 履歴をコンテキストとして追加
+                                context = "過去のチャット履歴:\n"
+                                for msg in recent_history:
+                                    role = ("ユーザー" if msg["role"] == "user" 
+                                           else "アシスタント")
+                                    context += f"{role}: {msg['content']}\n\n"
+                                
                                 report = company_briefing_without_web_search(
-                                    company.strip(), prompt.strip()
+                                    company.strip(), 
+                                    prompt.strip(),
+                                    context
                                 )
                                 st.markdown(str(report))
                                 # レポート内容をそのまま履歴に保存
@@ -306,7 +345,20 @@ def render_company_analysis_page():
 
         # チャット履歴クリアオプション
         with st.expander("オプション"):
-            if st.button("この案件のチャット履歴（画面のみ）をクリア"):
-                st.session_state.chat_messages = []
-                st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
-                st.rerun()  # 画面を即座に更新
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("この案件のチャット履歴（画面のみ）をクリア"):
+                    st.session_state.chat_messages = []
+                    st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
+                    st.rerun()  # 画面を即座に更新
+            
+            with col2:
+                # 履歴参照件数の選択（最大10件）
+                history_count = st.selectbox(
+                    "履歴参照件数",
+                    options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    index=2,  # デフォルト3件
+                    help="参照する過去のチャット履歴の件数（最大10件）"
+                )
+                st.session_state.history_reference_count = history_count

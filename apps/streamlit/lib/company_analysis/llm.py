@@ -24,7 +24,7 @@ def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> Com
 
     # Azureは"デプロイ名"が必須
     if s.use_azure:
-        model_name = s.azure_chat_deployment
+        model_name = "gpt-5-mini"
         if not model_name:
             raise RuntimeError(
                 "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT"
@@ -161,7 +161,7 @@ def company_briefing_without_web_search(company: str, user_input: str) -> Compan
 
     # Azureは"デプロイ名"が必須
     if s.use_azure:
-        model_name = s.azure_chat_deployment
+        model_name = "gpt-5-mini"
         if not model_name:
             raise RuntimeError(
                 "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT"

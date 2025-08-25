@@ -13,6 +13,3 @@ data/csv/products/DatasetB/*.csv
 
 # mypy cache
 .mypy_cache/
-
-# データベース
-data/sqlite/app.db

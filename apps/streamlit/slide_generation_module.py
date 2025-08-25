@@ -1,8 +1,13 @@
 # slide_generation_module.py
+# ---------------------------------------------------------
+# スライド作成ページ（左右2ペイン＋下段生成）
+# ---------------------------------------------------------
+
 from __future__ import annotations
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Tuple
 import streamlit as st
+import pandas as pd
 
 from lib.styles import apply_main_styles, apply_logo_styles, apply_scroll_script
 from lib.api import get_api_client, api_available, APIError
@@ -16,59 +21,49 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("selected_project", None)
     ss.setdefault("api_error", None)
     ss.setdefault("slide_meeting_notes", "")
-    ss.setdefault("slide_uploaded_files", [])
-    ss.setdefault("product_candidates", [])
+    ss.setdefault("uploaded_files_store", [])       # file_uploader保存用（widget keyとは別）
+    ss.setdefault("product_candidates", [])         # [{id, name, category, price, score, reason}]
     ss.setdefault("selected_products_ids", set())
     ss.setdefault("slide_outline", None)
+    ss.setdefault("slide_overview", "")
+    ss.setdefault("top_k_number", 10)               # 3〜20
 
 
-def _search_product_candidates(company: str, meeting_notes: str, top_k: int) -> List[Dict[str, Any]]:
+def _search_product_candidates(company: str, meeting_notes: str, top_k: int) -> Tuple[List[Dict[str, Any]], List[Tuple[str, str]]]:
+    """候補検索。戻り値: (results, notices[(level, msg)])"""
+    notices: List[Tuple[str, str]] = []
+
     if not api_available():
-        st.warning("APIが利用できないため、商品候補の取得はスキップします。")
-        return []
+        notices.append(("warning", "APIが利用できないため、商品候補の取得はスキップしました。"))
+        return [], notices
+
     try:
         api = get_api_client()
         if hasattr(api, "search_products"):
-            # 企業分析はバックエンドで自動付与される想定
-            return api.search_products(company=company, query=meeting_notes, top_k=top_k) or []
+            results = api.search_products(company=company, query=meeting_notes, top_k=top_k) or []
+            return results, notices
         else:
-            st.info("バックエンドに search_products が無いためダミー候補を表示します。")
-            return [
+            # 未実装フォールバック：ダミー
+            results = [
                 {"id": f"DUMMY-{i+1}", "name": f"ダミー商品 {i+1}", "category": "General",
                  "price": (i+1) * 10000, "score": round(0.9 - i*0.03, 2),
                  "reason": "企業分析（自動）と商談内容に基づく暫定理由"}
                 for i in range(top_k)
             ]
+            notices.append(("info", "バックエンドに search_products が見つからないため、ダミー候補を表示します。"))
+            return results, notices
     except APIError as e:
-        st.error(f"❌ 商品候補取得エラー: {e}")
-        return []
+        notices.append(("error", f"❌ 商品候補取得エラー: {e}"))
+        return [], notices
     except Exception as e:
-        st.error(f"⚠️ 予期しないエラー: {e}")
-        return []
+        notices.append(("error", f"⚠️ 予期しないエラー: {e}"))
+        return [], notices
 
 
-def _render_candidate_card(p: Dict[str, Any]) -> bool:
-    with st.container(border=True):
-        tcol, ccol = st.columns([8, 2])
-        with tcol:
-            st.markdown(f"**{p.get('name','(No Name)')}**")
-            meta = []
-            if p.get("category"): meta.append(f"カテゴリ: {p['category']}")
-            if p.get("price") is not None: meta.append(f"価格目安: ¥{p['price']:,}")
-            if p.get("score") is not None: meta.append(f"スコア: {p['score']}")
-            if meta: st.caption(" / ".join(meta))
-        with ccol:
-            key = f"select_prod_{p.get('id','_')}"
-            checked = st.checkbox("選択", key=key, value=p.get("id") in st.session_state.selected_products_ids)
-        if p.get("reason"):
-            with st.expander("候補理由（根拠）"):
-                st.write(p["reason"])
-        return checked
-
-
-def _make_outline_preview(company: str, meeting_notes: str, selected_products: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _make_outline_preview(company: str, meeting_notes: str, selected_products: List[Dict[str, Any]], overview: str) -> Dict[str, Any]:
     return {
         "title": f"{company} 向け提案資料（ドラフト）",
+        "overview": overview,
         "sections": [
             {"h2": "1. アジェンダ", "bullets": ["背景", "課題整理", "提案概要", "導入効果", "導入計画", "次のアクション"]},
             {"h2": "2. 背景", "bullets": [f"{company}の事業概要（要約）", "市場動向・競合状況（抜粋）"]},
@@ -77,7 +72,6 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
             {"h2": "5. 推奨ソリューション（候補）", "bullets": [f"{len(selected_products)}件の商材候補を整理・比較"]},
             {"h2": "6. 導入効果（定量/定性）", "bullets": ["KPI見込み / 効果試算の方針"]},
             {"h2": "7. 導入スケジュール案", "bullets": ["PoC → 本導入 / 体制・役割分担"]},
-            {"h2": "8. 次のアクション", "bullets": ["要件定義ミーティング", "評価用データの準備 など"]},
         ],
         "meeting_notes_digest": meeting_notes[:300] + ("..." if len(meeting_notes) > 300 else ""),
         "products": [
@@ -88,49 +82,27 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
     }
 
 
-def _render_company_meta_from_project(pj: Dict[str, Any]) -> None:
-    """案件カード由来の企業メタ情報（Expanderで開閉可能、読み取り専用）"""
-    if not pj:
-        st.info("案件一覧から遷移すると企業メタ情報（作成日/最終更新/概要/取引履歴など）がここに表示されます。")
-        return
-    with st.expander("企業メタ情報", expanded=True):
-        with st.container(border=True):
-            info_lines = []
-            if pj.get("updated"): info_lines.append(f"・最終更新：{pj['updated']}")
-            if pj.get("created"): info_lines.append(f"・作成日：{pj['created']}")
-            if pj.get("summary"): info_lines.append(f"・概要：{pj['summary']}")
-            tc = pj.get("transaction_count", 0)
-            if tc and tc > 0:
-                line = f"・取引履歴：{tc}件"
-                if pj.get("total_amount", 0) > 0:
-                    line += f" / 総取引額：¥{pj['total_amount']:,.0f}"
-                if pj.get("last_order_date"):
-                    line += f" / 最終発注：{pj['last_order_date']}"
-                info_lines.append(line)
-            else:
-                info_lines.append("・取引履歴：未リンク")
-            if pj.get("latest_message"):
-                msg_preview = pj["latest_message"][:50] + ("..." if len(pj["latest_message"]) > 50 else "")
-                info_lines.append(f"・最新分析：{msg_preview}")
-            st.markdown("<br>".join(info_lines), unsafe_allow_html=True)
+# --- top_kの±調整（on_clickで使用） ---
+def _bump_top_k(delta: int) -> None:
+    v = int(st.session_state.get("top_k_number", 10))
+    st.session_state.top_k_number = max(3, min(20, v + delta))
 
 
 def render_slide_generation_page():
     _ensure_session_defaults()
-
     apply_main_styles()
     apply_scroll_script()
 
     # ヘッダ
     header_col1, header_col2 = st.columns([3, 0.5])
     with header_col1:
-        if st.session_state.get("selected_project"):
-            pj = st.session_state.selected_project
+        pj = st.session_state.get("selected_project")
+        if pj:
             st.title(f"スライド作成 - {pj['title']} / {pj['company']}")
-            company_default = pj.get("company", "")
+            company_internal = pj.get("company", "")
         else:
             st.title("スライド作成")
-            company_default = ""
+            company_internal = ""
     with header_col2:
         st.markdown("")
         try:
@@ -146,123 +118,114 @@ def render_slide_generation_page():
         st.session_state.page_changed = True
         st.rerun()
 
-    # === セクション1: 対象企業（案件選択なし & メタ情報は自動表示） =======================
-    st.subheader("1. 対象企業")
+    # ====================== 1. 商品提案（左右2ペイン） ======================
+    st.subheader("1. 商品提案")
 
-    # 対象企業名：黒文字・編集不可（見た目は入力欄風）
-    st.markdown("""
-        <style>
-            .readonly-field {
-                border: 1px solid #E6E6E6; border-radius: 8px;
-                padding: 0.55rem 0.75rem; background: #FFFFFF;
-                color: #111827; font-size: 1rem;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    st.markdown("**対象企業名**")
-    st.markdown(f'<div class="readonly-field">{company_default or "—"}</div>', unsafe_allow_html=True)
+    left, right = st.columns([5, 7], gap="large")  # 左=入力、右=候補一覧（スクロール）
 
-    # メタ情報（Expanderで開閉）
-    _render_company_meta_from_project(st.session_state.get("selected_project"))
+    section_notices: List[Tuple[str, str]] = []
 
-    st.divider()
+    # ---- 左ペイン：商談詳細・資料・提案件数・取得ボタン
+    with left:
+        st.text_area(
+            "商談の詳細",
+            key="slide_meeting_notes",
+            height=160,
+            placeholder="例：来期の需要予測精度向上と在庫最適化。PoCから段階導入… など",
+        )
 
-    # === セクション2: 商談の詳細 / 参考資料 ==================================================
-    st.subheader("2. 商談の詳細 / 参考資料")
-    st.session_state.slide_meeting_notes = st.text_area(
-        "商談の詳細（アジェンダ・課題・期待・スコープなど）",
-        value=st.session_state.slide_meeting_notes or "",
-        height=180,
-        placeholder="例：来期の需要予測精度向上と在庫最適化。PoCから段階導入… など"
-    )
+        uploads = st.file_uploader(
+            "参考資料（任意）",
+            type=["pdf", "pptx", "docx", "xlsx", "csv", "txt", "md", "png", "jpg", "jpeg"],
+            accept_multiple_files=True,
+            key="slide_uploader",
+            help="アップロード資料はバックエンドで特徴抽出/要約に利用（想定）。",
+        )
+        if uploads:
+            st.session_state.uploaded_files_store = uploads
+            st.success(f"{len(uploads)} ファイルを受け付けました。")
+        elif st.session_state.uploaded_files_store:
+            st.caption(f"前回アップロード済み: {len(st.session_state.uploaded_files_store)} ファイル")
 
-    uploads = st.file_uploader(
-        "参考資料（任意・複数可）",
-        type=["pdf", "pptx", "docx", "xlsx", "csv", "txt", "md", "png", "jpg", "jpeg"],
-        accept_multiple_files=True,
-        help="アップロード資料はバックエンドで特徴抽出/要約に利用（想定）。"
-    )
-    if uploads:
-        st.session_state.slide_uploaded_files = uploads
-        st.success(f"{len(uploads)} ファイルを受け付けました。")
-    elif st.session_state.slide_uploaded_files:
-        st.caption(f"前回アップロード済み: {len(st.session_state.slide_uploaded_files)} ファイル")
+        # ラベル＋数値入力＋±ボタン（右端に取得）
+        bar_left, bar_spacer, bar_right = st.columns([1.8, 0.6, 1.0], gap="small", vertical_alignment="center")
+        with bar_left:
+            lc, ic, dec_c, inc_c = st.columns([0.45, 0.40, 0.075, 0.075], gap="small", vertical_alignment="center")
+            with lc:
+                st.markdown("**提案件数**")
+            with ic:
+                # key のみ指定（値はセッションがソース・オブ・トゥルース）
+                st.number_input(
+                    label="",
+                    min_value=3, max_value=20, step=1,
+                    key="top_k_number",
+                    label_visibility="collapsed",
+                )
+            with dec_c:
+                st.button("−", key="topk_dec", use_container_width=True, on_click=_bump_top_k, kwargs={"delta": -1})
+            with inc_c:
+                st.button("+", key="topk_inc", use_container_width=True, on_click=_bump_top_k, kwargs={"delta": +1})
 
-    st.divider()
+        with bar_right:
+            search_btn = st.button("候補を取得", use_container_width=True)
 
-    # === セクション3: 推奨商品候補（社内商材DB） ============================================
-    st.subheader("3. 推奨商品候補の取得")
-
-    # 上段：ラベル行 / 下段：コントロール行（高さを完全一致させる）
-    label_cols = st.columns([2, 1, 1])
-    with label_cols[0]: st.markdown("**最大候補数**")
-    with label_cols[1]: st.markdown("**候補を取得**")
-    with label_cols[2]: st.markdown("**クリア**")
-
-    control_cols = st.columns([2, 1, 1])
-    with control_cols[0]:
-        top_k = st.number_input("", min_value=3, max_value=20, value=10, step=1, label_visibility="collapsed")
-    with control_cols[1]:
-        search_btn = st.button("取得", use_container_width=True)
-    with control_cols[2]:
-        clear_btn = st.button("クリア", use_container_width=True)
-
-    if clear_btn:
-        st.session_state.product_candidates = []
-        st.session_state.selected_products_ids = set()
-        st.info("候補と選択状態をクリアしました。")
-
+    # --- 取得処理は右ペインの表描画「前」に実行（1回クリックで表示されるように）
     if search_btn:
-        company = (company_default or "").strip()
-        if not company:
-            st.error("企業名が選択されていません。案件一覧から企業を選んでください。")
+        if not company_internal.strip():
+            section_notices.append(("error", "企業が選択されていません。案件一覧から企業を選んでください。"))
         else:
+            st.session_state.product_candidates = []
+            st.session_state.selected_products_ids = set()
             with st.spinner("社内商材DBから候補を検索中…"):
-                results = _search_product_candidates(
-                    company=company,
+                results, notes = _search_product_candidates(
+                    company=company_internal,
                     meeting_notes=st.session_state.slide_meeting_notes or "",
-                    top_k=int(top_k),
+                    top_k=int(st.session_state.top_k_number),
                 )
             st.session_state.product_candidates = results
+            section_notices.extend(notes)
             if results:
-                st.success(f"候補を {len(results)} 件取得しました。")
+                section_notices.append(("success", f"候補を {len(results)} 件取得しました。"))
             else:
-                st.warning("候補が見つかりませんでした。")
+                section_notices.append(("warning", "候補が見つかりませんでした。"))
 
-    if st.session_state.product_candidates:
-        st.caption("提案したいものをチェックしてください。")
-        changed_any = False
-        for p in st.session_state.product_candidates:
-            checked = _render_candidate_card(p)
-            pid = p.get("id")
-            if checked and pid not in st.session_state.selected_products_ids:
-                st.session_state.selected_products_ids.add(pid); changed_any = True
-            elif not checked and pid in st.session_state.selected_products_ids:
-                st.session_state.selected_products_ids.remove(pid); changed_any = True
-        if changed_any:
-            st.toast(f"選択数: {len(st.session_state.selected_products_ids)}")
+    # ---- 右ペイン：候補一覧（data_editor, スクロール, 1クリックで反映）
+    with right:
+        st.markdown("**候補一覧**")
 
-    st.divider()
+        if st.session_state.product_candidates:
+            df = pd.DataFrame([
+                {
+                    "選択": (p.get("id") in st.session_state.selected_products_ids),
+                    "商品名": p.get("name"),
+                    "カテゴリ": p.get("category"),
+                    "価格": p.get("price"),
+                    "スコア": p.get("score"),
+                    "理由": p.get("reason"),
+                    "_id": p.get("id"),
+                }
+                for p in st.session_state.product_candidates
+            ])
 
-    # === セクション4: スライド下書き生成（プレビュー） =======================================
-    st.subheader("4. スライド下書きを作成")
-    gen_col1, gen_col2 = st.columns([1, 3])
-    with gen_col1:
-        gen_btn = st.button("スライド下書きを作成する", type="primary")
-    with gen_col2:
-        st.caption("※現在はフロントのプレビューのみ。実生成はバックエンド/LLMへ差し替え予定。")
+            edited = st.data_editor(
+                df,
+                key="candidates_editor",          # ← keyを付与
+                hide_index=True,
+                height=480,
+                use_container_width=True,
+                column_config={
+                    "選択": st.column_config.CheckboxColumn("選択", help="提案に含める場合チェック"),
+                    "価格": st.column_config.NumberColumn("価格", format="¥%d", disabled=True),
+                    "スコア": st.column_config.NumberColumn("スコア", step=0.01, disabled=True),
+                    "商品名": st.column_config.TextColumn("商品名", disabled=True),
+                    "カテゴリ": st.column_config.TextColumn("カテゴリ", disabled=True),
+                    "理由": st.column_config.TextColumn("理由", disabled=True),
+                    "_id": st.column_config.TextColumn("_id", disabled=True),
+                },
+                disabled=["商品名", "カテゴリ", "価格", "スコア", "理由", "_id"],
+            )
 
-    if gen_btn:
-        company = (company_default or "").strip()
-        if not company:
-            st.error("企業名が選択されていません。")
-        else:
-            selected = [p for p in st.session_state.product_candidates
-                        if p.get("id") in st.session_state.selected_products_ids]
-            outline = _make_outline_preview(company, st.session_state.slide_meeting_notes or "", selected)
-            st.session_state.slide_outline = outline
-            st.success("下書きを作成しました。")
-
-    if st.session_state.slide_outline:
-        with st.expander("下書きプレビュー（JSON）", expanded=True):
-            st.json(st.session_state.slide_outline)
+            # 1クリックで反映：返ってきたeditedから即セッションに反映
+            selected_ids = {row["_id"] for _, row in edited.iterrows() if row["選択"]}
+            if selected_ids != st.session_state.selected_products_ids:
+                st.session_state.selected_products_ids = selected_ids

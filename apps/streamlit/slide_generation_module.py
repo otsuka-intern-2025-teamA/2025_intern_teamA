@@ -159,7 +159,7 @@ def render_slide_generation_page():
                 st.markdown("**提案件数**")
             with ic:
                 top_k = st.number_input(
-                    label="",
+                    label="提案件数",
                     min_value=3, max_value=20, value=10, step=1,
                     label_visibility="collapsed",
                     key="top_k_number",

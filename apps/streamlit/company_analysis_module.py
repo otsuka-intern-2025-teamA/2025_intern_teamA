@@ -276,8 +276,9 @@ def render_company_analysis_page():
                 except Exception as e:
                     st.error(f"サーバ保存に失敗しました（assistant）: {e}")
 
-        # 任意：画面だけクリア
+        # チャット履歴クリアオプション
         with st.expander("オプション"):
             if st.button("この案件のチャット履歴（画面のみ）をクリア"):
                 st.session_state.chat_messages = []
                 st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
+                st.rerun()  # 画面を即座に更新

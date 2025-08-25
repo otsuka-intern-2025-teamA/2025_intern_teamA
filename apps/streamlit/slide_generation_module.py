@@ -139,7 +139,7 @@ def render_slide_generation_page():
 
         uploads = st.file_uploader(
             "参考資料（任意）",
-            type=["pdf", "pptx", "docx", "xlsx", "csv", "txt", "md", "png", "jpg", "jpeg"],
+            type=["pdf", "pptx", "docx", "csv", "png", "jpg", "jpeg"],
             accept_multiple_files=True,
             key="slide_uploader",  # ← ウィジェットのkey（セッションに書き込まない）
             help="アップロード資料はバックエンドで特徴抽出/要約に利用（想定）。",

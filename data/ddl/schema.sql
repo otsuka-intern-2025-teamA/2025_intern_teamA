@@ -98,9 +98,8 @@ SELECT
   COUNT(h.id) as transaction_count,
   COALESCE(SUM(h.amount), 0) as total_amount,
   MAX(h.order_date) as last_order_date,
-  -- 最新のメッセージ内容（要約表示用）
-  (SELECT content FROM messages WHERE item_id = i.id AND role = 'assistant' 
-   ORDER BY created_at DESC LIMIT 1) as latest_assistant_message
+  -- ユーザーが送信したチャット回数
+  (SELECT COUNT(*) FROM messages WHERE item_id = i.id AND role = 'user') as user_message_count
 FROM items i
 LEFT JOIN history h ON i.id = h.item_id
 GROUP BY i.id, i.title, i.company_name, i.description, i.created_at, i.updated_at;

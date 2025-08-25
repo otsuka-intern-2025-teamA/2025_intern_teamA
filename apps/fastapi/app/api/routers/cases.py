@@ -36,11 +36,11 @@ def get_items(
             func.max(History.order_date).label('last_order_date')
         ).filter(History.item_id == item.id).first()
         
-        # 最新のアシスタントメッセージを取得（要約表示用）
-        latest_message = db.query(Message.content).filter(
+        # ユーザーが送信したチャット回数を取得
+        user_message_count = db.query(func.count(Message.id)).filter(
             Message.item_id == item.id,
-            Message.role == 'assistant'
-        ).order_by(Message.created_at.desc()).first()
+            Message.role == 'user'
+        ).scalar() or 0
         
         # シンプルな辞書形式で返す
         item_data = {
@@ -53,7 +53,7 @@ def get_items(
             "transaction_count": history_stats.transaction_count or 0,
             "total_amount": float(history_stats.total_amount or 0.0),
             "last_order_date": history_stats.last_order_date,
-            "latest_assistant_message": latest_message.content if latest_message else None
+            "user_message_count": user_message_count
         }
         result.append(item_data)
     

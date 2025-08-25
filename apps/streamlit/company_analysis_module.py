@@ -19,7 +19,8 @@ from lib.api import get_api_client, APIError  # ← 追加
 from lib.styles import (
     apply_main_styles, 
     apply_logo_styles,
-    apply_scroll_script
+    apply_scroll_script,
+    apply_chat_scroll_script
 )
 
 # 画像ファイルのパス定義
@@ -108,8 +109,8 @@ def render_company_analysis_page():
         st.session_state.page_changed = True  # ページ変更フラグを設定
         st.rerun()
 
-    # ---- ここから、フォーム/チャットの切替（既定はフォームモード）----
-    mode = st.radio("モード", ["フォーム", "チャット"], index=0, horizontal=True)
+    # ---- ここから、フォーム/チャットの切替（既定はチャットモード）----
+    mode = st.radio("モード", ["フォーム", "チャット"], index=1, horizontal=True)
 
     # 設定（横並び）
     col1, col2 = st.columns(2)
@@ -236,6 +237,10 @@ def render_company_analysis_page():
         for m in st.session_state.chat_messages:
             with st.chat_message(m["role"]):
                 st.markdown(m["content"])
+        
+        # 自動スクロール機能（一番下にスクロール）
+        if st.session_state.chat_messages:
+            apply_chat_scroll_script()
 
         # --- 送信欄 ---
         prompt = st.chat_input("この企業について知りたいことを入力…")

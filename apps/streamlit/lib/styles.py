@@ -5,6 +5,7 @@
 
 import streamlit as st
 
+
 def get_main_styles():
     """メインの共通スタイルを取得"""
     return """
@@ -68,6 +69,7 @@ def get_main_styles():
     </style>
     """
 
+
 def get_logo_styles():
     """ロゴ画像のスタイルを取得"""
     return """
@@ -84,6 +86,7 @@ def get_logo_styles():
     }
     </style>
     """
+
 
 def get_title_styles():
     """タイトルのスタイルを取得"""
@@ -116,6 +119,7 @@ def get_title_styles():
     </style>
     """
 
+
 def get_scroll_script():
     """ページトップスクロール用のJavaScriptを取得"""
     return """
@@ -130,21 +134,58 @@ def get_scroll_script():
     </script>
     """
 
+
+def get_chat_scroll_script():
+    """チャット履歴の一番下にスクロールするJavaScriptを取得"""
+    return """
+    <script>
+    // チャット履歴の一番下にスクロール
+    function scrollToBottom() {
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+    
+    // ページ読み込み完了後に一番下にスクロール
+    window.addEventListener('load', function() {
+        scrollToBottom();
+    });
+    
+    // 履歴が更新された後にも一番下にスクロール
+    setTimeout(function() {
+        scrollToBottom();
+    }, 100);
+    
+    // さらに確実にするため、少し遅延して実行
+    setTimeout(function() {
+        scrollToBottom();
+    }, 500);
+    </script>
+    """
+
+
 def apply_main_styles():
     """メインの共通スタイルを適用"""
     st.markdown(get_main_styles(), unsafe_allow_html=True)
+
 
 def apply_logo_styles():
     """ロゴ画像のスタイルを適用"""
     st.markdown(get_logo_styles(), unsafe_allow_html=True)
 
+
 def apply_title_styles():
     """タイトルのスタイルを適用"""
     st.markdown(get_title_styles(), unsafe_allow_html=True)
 
+
 def apply_scroll_script():
     """スクロールスクリプトを適用"""
     st.markdown(get_scroll_script(), unsafe_allow_html=True)
+
+
+def apply_chat_scroll_script():
+    """チャットスクロールスクリプトを適用"""
+    st.markdown(get_chat_scroll_script(), unsafe_allow_html=True)
+
 
 def apply_all_styles():
     """全てのスタイルを適用"""

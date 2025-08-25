@@ -1,6 +1,6 @@
 # 案件管理システム
 
-企業分析機能付きの案件管理システムです。SQLiteデータベースとRAG（Retrieval-Augmented Generation）検索を活用し、効率的な企業分析とデータ管理を実現します。
+企業分析機能付きの案件管理システムです。SQLiteデータベースとLLM（Large Language Model）を活用し、効率的な企業分析とデータ管理を実現します。
 
 ## 🛠️ 技術構成
 
@@ -8,6 +8,7 @@
 - **バックエンド**: FastAPI
 - **データベース**: SQLite（単一ファイル）
 - **データソース**: CSV（商材データ、取引履歴）
+- **AI機能**: OpenAI GPT / Azure OpenAI
 - **検索機能**: FTS5（全文検索）
 
 ## 📁 プロジェクト構成
@@ -24,11 +25,18 @@ otsuka_internship_teamA/
 │   │       │   └── messages.py    # メッセージ管理API
 │   │       └── db/                # データベース関連
 │   │           ├── models.py      # SQLAlchemyモデル
-│   │           └── session.py     # DB接続設定
+│   │           └── session.py     # DB接続・初期化設定
 │   └── streamlit/                 # フロントエンドアプリ
-│       ├── app.py                 # メインアプリ
+│       ├── app.py                 # メインアプリ（案件管理）
+│       ├── company_analysis_module.py  # 企業分析モジュール
 │       └── lib/
-│           └── api.py             # FastAPI通信ライブラリ
+│           ├── api.py             # FastAPI通信ライブラリ
+│           ├── styles.py          # 共通スタイル定義
+│           └── company_analysis/  # 企業分析機能
+│               ├── config.py      # 設定管理（APIキー等）
+│               ├── data.py        # データ構造定義
+│               ├── llm.py         # LLM連携処理
+│               └── ui.py          # 企業分析UI
 ├── data/
 │   ├── ddl/
 │   │   └── schema.sql             # データベーススキーマ
@@ -38,6 +46,10 @@ otsuka_internship_teamA/
 │   │   │   └── DatasetB/         # 商材データセットB
 │   │   └── trade_history_dummy_100.csv  # サンプル取引履歴
 │   ├── images/                    # アプリ画像
+│   │   ├── otsuka_icon.png       # アプリアイコン
+│   │   └── otsuka_logo.jpg       # ロゴ画像
+│   ├── templates/                 # テンプレートファイル
+│   │   └── proposal_template.pptx # 提案書テンプレート
 │   └── sqlite/
 │       └── app.db                 # SQLiteデータベース
 └── scripts/
@@ -70,7 +82,7 @@ otsuka_internship_teamA/
 .venv\Scripts\activate
 
 # 必要なパッケージをインストール
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 ### 2. データベースの初期化
@@ -87,6 +99,7 @@ python scripts/load_products.py --replace
 #### ターミナル1: FastAPIサーバー
 ```powershell
 .venv\Scripts\activate
+sorce .venv/bin/activate
 cd apps\fastapi
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -94,6 +107,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 #### ターミナル2: Streamlitアプリ
 ```powershell
 .venv\Scripts\activate
+sorce .venv/bin/activate
 streamlit run apps\streamlit\app.py
 ```
 
@@ -155,7 +169,6 @@ python -c "import sqlite3; conn = sqlite3.connect('data/sqlite/app.db'); cursor 
 ### 案件データの確認
 
 ```powershell
-
 # 案件詳細（フル情報）
 python -c "import sqlite3; conn=sqlite3.connect('data/sqlite/app.db'); cursor=conn.cursor(); cursor.execute('SELECT * FROM items'); items=cursor.fetchall(); print('案件詳細:'); [print(f'ID:{item[0][:8]}... | {item[1]} | {item[2]} | {item[4]}') for item in items]; conn.close()"
 ```

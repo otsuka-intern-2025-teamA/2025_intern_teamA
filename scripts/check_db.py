@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def check_database(show_all_data=False, max_sample_size=20):
-    db_path = Path("data/sqlite/app.db")
+    db_path = Path("app.db")
     
     if not db_path.exists():
         print(f"データベースファイルが見つかりません: {db_path}")

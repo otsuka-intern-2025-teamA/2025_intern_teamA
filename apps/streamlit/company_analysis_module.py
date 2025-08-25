@@ -13,6 +13,7 @@ from lib.company_analysis.llm import (
     company_briefing_without_web_search
 )
 from lib.company_analysis.ui import render_report
+from lib.company_analysis.llm import generate_tavily_queries 
 
 # ★ 追加：APIクライアント（履歴の保存/復元に使用）
 from lib.api import get_api_client, APIError  # ← 追加
@@ -154,7 +155,10 @@ def render_company_analysis_page():
                 # Web検索を使用する場合
                 st.info("Web検索中…")
                 try:
-                    hits = run_search(company.strip(), count=int(top_k))
+                    queries = generate_tavily_queries(company.strip(), user_input if not use_web_search else "")
+                    # 1クエリあたりの取得件数を計算（上限 top_k に近づける）
+                    per_query = max(1, int(top_k) // max(1, len(queries)))
+                    hits = tavily_multi_search(queries, per_query=per_query)
 
                     if not hits:
                         st.error(
@@ -247,7 +251,10 @@ def render_company_analysis_page():
                 with st.spinner("🔎 Web検索→LLMで要約中…"):
                     try:
                         if use_web_search:
-                            hits = run_search((company or "").strip() or default_company, count=int(top_k))
+                            base_company = (company or "").strip() or default_company
+                            queries = generate_tavily_queries(base_company, prompt)
+                            per_query = max(1, int(top_k) // max(1, len(queries)))
+                            hits = tavily_multi_search(queries, per_query=per_query)
                             if not hits:
                                 st.warning("検索結果が見つかりませんでした。TAVILY_API_KEY を設定してください。")
                                 assistant_text = "検索結果が得られませんでした。"
@@ -282,3 +289,17 @@ def render_company_analysis_page():
                 st.session_state.chat_messages = []
                 st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
                 st.rerun()  # 画面を即座に更新
+
+def tavily_multi_search(queries: List[str], per_query: int = 3) -> List[SearchHit]:
+    """複数クエリを順に検索し、URLで重複排除して統合する"""
+    seen_urls = set()
+    merged: List[SearchHit] = []
+    for q in queries:
+        hits = tavily_search(q, count=per_query)
+        for h in hits:
+            url = (h.url or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            merged.append(h)
+    return merged

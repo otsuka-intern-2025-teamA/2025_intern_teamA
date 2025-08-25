@@ -1,38 +1,50 @@
-import streamlit as st
-from pathlib import Path
+import re
 from datetime import datetime
+from pathlib import Path
+
+import streamlit as st
 
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
+ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
-# 企業分析モジュールのインポート
+# 企業分析/スライド作成モジュール
 from company_analysis_module import render_company_analysis_page
-
-# スライド生成モジュールのインポート
 from slide_generation_module import render_slide_generation_page
 
-# 共通スタイルモジュールのインポート
-from lib.styles import apply_main_styles, apply_logo_styles
-ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
+# 共通スタイル + HTMLヘルパー
+from lib.styles import (
+    apply_main_styles,
+    apply_logo_styles,
+    apply_scroll_script,
+    apply_title_styles,              # ← タイトルの基本スタイルを適用
+    apply_projects_list_page_styles, # ← このページ専用CSS（サイドバー圧縮/ロゴカード等）
+    render_sidebar_logo_card,        # ← サイドバー上部ロゴ
+    render_projects_list_title,      # ← タイトル描画
+)
+
+# API クライアント
+from lib.api import get_api_client, api_available, format_date, APIError
+
 
 # ---- ページ設定（最初に実行）
 st.set_page_config(
     page_title="案件一覧",
     page_icon=str(ICON_PATH),
     layout="wide",
-    initial_sidebar_state="collapsed",
-    menu_items={"Get Help": None, "Report a bug": None, "About": None}
+    initial_sidebar_state="expanded",
+    menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
+# ---- 共通スタイル適用（サイドバーを出す）
+apply_main_styles(hide_sidebar=False, hide_header=True)
+apply_logo_styles()
+apply_title_styles()
+apply_scroll_script()
+apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/サイドバー圧縮
 
-# ---- 共通スタイル適用
-apply_main_styles()
-
-# API クライアントのインポート
-from lib.api import get_api_client, api_available, format_date, APIError
-
-# ---- セッション初期化（※インデント必須）
+# ---- セッション初期化
 if "selected_project" not in st.session_state:
     st.session_state.selected_project = None
 if "projects" not in st.session_state:
@@ -54,24 +66,44 @@ def _fmt(d):
         return str(d)
 
 
+def _to_dt(v) -> datetime:
+    """安全に日時へ。失敗したら最小値で返す（古い順などの安定ソート用）"""
+    if isinstance(v, datetime):
+        return v
+    s = str(v) if v is not None else ""
+    s = s.replace("Z", "+00:00")
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z",
+                "%Y-%m-%dT%H:%M:%S.%f%z",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y/%m/%d",
+                "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            pass
+    try:
+        return datetime.fromisoformat(s)
+    except Exception:
+        return datetime.min
+
+
 def _switch_page(page_file: str, project_data=None):
     if page_file == "企業分析":
-        # 企業分析ページに遷移（セッションステートを使用）
         st.session_state.current_page = "企業分析"
         if project_data:
             st.session_state.selected_project = project_data
-        st.session_state.page_changed = True  # ページ変更フラグを設定
+        st.session_state.page_changed = True
         st.rerun()
     elif page_file == "スライド作成":
-        # スライド作成ページに遷移（セッションステートを使用）
         st.session_state.current_page = "スライド作成"
         if project_data:
             st.session_state.selected_project = project_data
-        st.session_state.page_changed = True  # ページ変更フラグを設定
+        st.session_state.page_changed = True
         st.rerun()
     else:
         st.error(f"不明なページ: {page_file}")
         st.info("この機能は現在開発中です。")
+
 
 # ---- ダイアログ
 Dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
@@ -88,19 +120,17 @@ if Dialog:
             if not title.strip() or not company.strip():
                 st.error("案件名と企業名は必須です。")
                 st.stop()
-            
-            # API経由で新規案件を作成
             try:
                 if api_available():
                     api = get_api_client()
                     new_item_data = {
                         "title": title.strip(),
                         "company_name": company.strip(),
-                        "description": summary.strip() or "—"
+                        "description": summary.strip() or "—",
                     }
                     result = api.create_item(new_item_data)
                     st.success(f"案件「{result['title']}」を作成しました。")
-                    st.session_state.api_error = None  # エラー状態をクリア
+                    st.session_state.api_error = None
                 else:
                     st.error("🔌 APIサーバーに接続できません。")
                     return
@@ -110,7 +140,6 @@ if Dialog:
             except Exception as e:
                 st.error(f"⚠️ 予期しないエラー: {e}")
                 return
-            
             st.rerun()
 
     @Dialog("案件の編集 / 削除")
@@ -125,20 +154,18 @@ if Dialog:
                 saved = st.form_submit_button("保存")
             with c2:
                 deleted = st.form_submit_button("削除")
-        
+
         if saved:
             if not title.strip() or not company.strip():
                 st.error("案件名と企業名は必須です。")
                 st.stop()
-                
-            # API経由で案件を更新
             try:
                 if api_available():
                     api = get_api_client()
                     update_data = {
                         "title": title.strip(),
                         "company_name": company.strip(),
-                        "description": summary.strip() or "—"
+                        "description": summary.strip() or "—",
                     }
                     result = api.update_item(pj["id"], update_data)
                     st.success(f"案件「{result['title']}」を更新しました。")
@@ -152,15 +179,12 @@ if Dialog:
             except Exception as e:
                 st.error(f"⚠️ 予期しないエラー: {e}")
                 return
-                
             st.rerun()
-            
+
         if deleted:
             if not confirm_del:
                 st.error("削除にはチェックが必要です。")
                 return
-                
-            # API経由で案件を削除
             try:
                 if api_available():
                     api = get_api_client()
@@ -176,90 +200,106 @@ if Dialog:
             except Exception as e:
                 st.error(f"⚠️ 予期しないエラー: {e}")
                 return
-                
             st.rerun()
 else:
     def open_new_dialog():
         st.warning("このStreamlitではダイアログ未対応です")
+
     def open_edit_dialog(pj):
         st.warning("このStreamlitではダイアログ未対応です")
 
-# ---- ページルーティング
+
+# =========================
+# 案件一覧ページ本体
+# =========================
 if st.session_state.current_page == "企業分析":
     render_company_analysis_page()
 elif st.session_state.current_page == "スライド作成":
     render_slide_generation_page()
 else:
-    # デフォルトは案件一覧ページ
     st.session_state.current_page = "案件一覧"
-    
-    # 案件一覧ページでもページ上部にスクロール
-    if st.session_state.get("page_changed", False):
-        st.markdown("""
-        <script>
-        // 複数の方法でページトップにスクロール
-        setTimeout(function() {
-            window.scrollTo(0, 0);
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
-            window.scrollTo({top: 0, behavior: 'instant'});
-        }, 100);
-        </script>
-        """, unsafe_allow_html=True)
-        st.session_state.page_changed = False
-    
-    # タイトル（左上）とロゴ（右下寄り）を配置
-    header_col1, header_col2 = st.columns([3, 0.5])
 
-    with header_col1:
-        st.title("案件一覧")
+    # ---------- サイドバー ----------
+    with st.sidebar:
+        # ロゴ（白背景ラウンドボックス）
+        render_sidebar_logo_card(LOGO_PATH)
 
-    with header_col2:
-        # ロゴを右下寄りに配置
-        st.markdown("")  # 少し下にスペース
-        st.markdown("")  # さらに下にスペース
-        try:
-            # 定義済みのロゴパスを使用（共通スタイルモジュールから適用）
-            apply_logo_styles()
-            st.image(str(LOGO_PATH), width=160, use_container_width=False)
-        except FileNotFoundError:
-            st.info(f"ロゴ画像が見つかりません: {LOGO_PATH}")
-        except Exception as e:
-            st.warning(f"ロゴの読み込みエラー: {e}")
+        # 並び替え
+        sort_choice = st.selectbox(
+            "並び順",
+            [
+                "最終更新（新しい順）",
+                "最終更新（古い順）",
+                "作成日（新しい順）",
+                "作成日（古い順）",
+                "企業名（A→Z）",
+                "企業名（Z→A）",
+                "案件名（A→Z）",
+                "案件名（Z→A）",
+            ],
+            index=0,
+            key="projects_sort_choice",
+            help="カードの並び順を切り替えます",
+        )
 
-    # 新規作成ボタンをより右に配置
-    st.markdown("")  # 少しスペースを追加
-    col1, col2 = st.columns([7, 1])
-    with col2:
-        if st.button("＋ 新規作成"):
-            open_new_dialog()
+        # 検索・フィルタ
+        keyword = st.text_input(
+            "キーワード検索",
+            value=st.session_state.get("projects_search_keyword", ""),
+            key="projects_search_keyword",
+            placeholder="案件名・企業名・概要で検索",
+        )
+        has_tx_only = st.checkbox(
+            "取引がある案件のみ",
+            value=st.session_state.get("projects_has_tx_only", False),
+            key="projects_has_tx_only",
+        )
 
-    # データ取得関数を定義
+        # アクション
+        st.markdown("### アクション")
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            if st.button("更新", use_container_width=True):
+                st.rerun()
+        with col_a2:
+            if st.button("＋ 新規作成", use_container_width=True):
+                open_new_dialog()
+
+    # ---------- タイトル ----------
+    render_projects_list_title("案件一覧")
+
+    # ---------- データ取得 ----------
     def fetch_items_from_api():
         """APIから最新の案件データを取得する"""
         try:
             if api_available():
                 api = get_api_client()
                 api_items = api.get_items()
-                
-                # APIデータをStreamlit形式に変換
+
                 items = []
                 for item in api_items:
+                    created_raw = item.get("created_at")
+                    updated_raw = item.get("updated_at")
+                    last_order_raw = item.get("last_order_date")
                     formatted_item = {
                         "id": item["id"],
                         "title": item["title"],
                         "company": item["company_name"],
                         "status": "調査中",  # デフォルトステータス
-                        "created": format_date(item["created_at"]),
-                        "updated": format_date(item["updated_at"]),
-                        "summary": item["description"] or "—",
+                        "created": format_date(created_raw),
+                        "updated": format_date(updated_raw),
+                        "summary": item.get("description") or "—",
                         "transaction_count": item.get("transaction_count", 0),
                         "total_amount": item.get("total_amount", 0),
-                        "last_order_date": item.get("last_order_date"),
-                        "user_message_count": item.get("user_message_count", 0)
+                        "last_order_date": last_order_raw,
+                        "user_message_count": item.get("user_message_count", 0),
+                        # ソート用の生値
+                        "_created_raw": created_raw,
+                        "_updated_raw": updated_raw,
+                        "_last_order_raw": last_order_raw,
                     }
                     items.append(formatted_item)
-                
+
                 st.session_state.projects = items
                 st.session_state.api_error = None
                 return items
@@ -267,74 +307,112 @@ else:
                 if st.session_state.api_error != "connection":
                     st.error("🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。")
                     st.session_state.api_error = "connection"
-                return st.session_state.projects  # キャッシュされたデータを使用
-                
+                return st.session_state.projects
         except APIError as e:
             if st.session_state.api_error != str(e):
                 st.error(f"❌ API エラー: {e}")
                 st.session_state.api_error = str(e)
-            return st.session_state.projects  # キャッシュされたデータを使用
+            return st.session_state.projects
         except Exception as e:
             if st.session_state.api_error != str(e):
                 st.error(f"⚠️ 予期しないエラー: {e}")
                 st.session_state.api_error = str(e)
-            return st.session_state.projects  # キャッシュされたデータを使用
+            return st.session_state.projects
 
-    # APIから案件データを取得
     items = fetch_items_from_api()
 
-    # カード描画
-    cols_per_row = 3 if len(items) >= 3 else 2
-    rows = (len(items) + cols_per_row - 1) // cols_per_row
+    # ---------- 検索・フィルタ適用（※ 総取引額下限なし） ----------
+    def _match_keyword(p, kw: str) -> bool:
+        if not kw:
+            return True
+        kw = kw.strip().lower()
+        hay = " ".join([
+            str(p.get("title", "")),
+            str(p.get("company", "")),
+            str(p.get("summary", "")),
+        ]).lower()
+        hay = re.sub(r"\s+", " ", hay)
+        return kw in hay
 
-    for r in range(rows):
-        cols = st.columns(cols_per_row)
-        for i, col in enumerate(cols):
-            idx = r * cols_per_row + i
-            if idx >= len(items):
-                break
-            p = items[idx]
-            with col:
-                with st.container(border=True):
-                    h1, h2 = st.columns([10, 1])
-                    with h1:
+    filtered = []
+    for p in items:
+        if has_tx_only and p.get("transaction_count", 0) <= 0:
+            continue
+        if not _match_keyword(p, keyword):
+            continue
+        filtered.append(p)
+
+    # ---------- 並び替え（※ 金額/回数/最終発注日は除外） ----------
+    sort_map = {
+        "最終更新（新しい順）":  lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
+        "最終更新（古い順）":    lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
+        "作成日（新しい順）":    lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
+        "作成日（古い順）":      lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
+        "企業名（A→Z）":        lambda x: (str(x.get("company", "")).lower(),),
+        "企業名（Z→A）":        lambda x: (str(x.get("company", "")).lower(),),
+        "案件名（A→Z）":        lambda x: (str(x.get("title", "")).lower(),),
+        "案件名（Z→A）":        lambda x: (str(x.get("title", "")).lower(),),
+    }
+    key_fn = sort_map.get(sort_choice, sort_map["最終更新（新しい順）"])
+    reverse = sort_choice in {
+        "最終更新（新しい順）",
+        "作成日（新しい順）",
+        "企業名（Z→A）",
+        "案件名（Z→A）",
+    }
+    filtered.sort(key=key_fn, reverse=reverse)
+
+    # ---------- カード描画（1行＝2列固定） ----------
+    if not filtered:
+        st.info("表示できる案件がありません。検索条件やフィルタを見直してください。")
+    else:
+        cols_per_row = 2  # ← 固定
+        rows = (len(filtered) + cols_per_row - 1) // cols_per_row
+
+        for r in range(rows):
+            cols = st.columns(cols_per_row)
+            for i, col in enumerate(cols):
+                idx = r * cols_per_row + i
+                if idx >= len(filtered):
+                    break
+                p = filtered[idx]
+                with col:
+                    with st.container(border=True):
+                        h1, h2 = st.columns([10, 1])
+                        with h1:
+                            st.markdown(
+                                f'<div class="title">{p["title"]}<span class="tag">{p["status"]}</span></div>',
+                                unsafe_allow_html=True,
+                            )
+                        with h2:
+                            if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"):
+                                open_edit_dialog(p)
+                        st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
+
+                        meta_info = []
+                        meta_info.append(f"・最終更新：{_fmt(p.get('updated'))}")
+                        meta_info.append(f"・作成日：{_fmt(p.get('created'))}")
+                        meta_info.append(f"・概要：{p.get('summary', '—')}")
+                        if p.get("transaction_count", 0) > 0:
+                            meta_info.append(f"・取引履歴：{p['transaction_count']}件")
+                            if p.get("total_amount", 0) > 0:
+                                meta_info.append(f"・総取引額：¥{p['total_amount']:,.0f}")
+                            if p.get("last_order_date"):
+                                meta_info.append(f"・最終発注：{format_date(p['last_order_date'])}")
+                        else:
+                            meta_info.append("・取引履歴：未リンク")
+                        meta_info.append(f"・チャット回数：{p.get('user_message_count', 0)}回")
+
                         st.markdown(
-                            f'<div class="title">{p["title"]}<span class="tag">{p["status"]}</span></div>',
+                            f'<div class="meta">{"".join([f"{info}<br>" for info in meta_info])}</div>',
                             unsafe_allow_html=True,
                         )
-                    with h2:
-                        if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"):
-                            open_edit_dialog(p)
-                    st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
-                    # メタ情報を動的に構築
-                    meta_info = []
-                    meta_info.append(f"・最終更新：{_fmt(p.get('updated'))}")
-                    meta_info.append(f"・作成日：{_fmt(p.get('created'))}")
-                    meta_info.append(f"・概要：{p.get('summary', '—')}")
-                    
-                    # 取引情報がある場合は追加
-                    if p.get("transaction_count", 0) > 0:
-                        meta_info.append(f"・取引履歴：{p['transaction_count']}件")
-                        if p.get("total_amount", 0) > 0:
-                            meta_info.append(f"・総取引額：¥{p['total_amount']:,.0f}")
-                        if p.get("last_order_date"):
-                            meta_info.append(f"・最終発注：{format_date(p['last_order_date'])}")
-                    else:
-                        meta_info.append("・取引履歴：未リンク")
-                    
-                    # チャット回数を追加
-                    meta_info.append(f"・チャット回数：{p.get('user_message_count', 0)}回")
-                    
-                    st.markdown(
-                        f'<div class="meta">{"".join([f"{info}<br>" for info in meta_info])}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    b1, b2 = st.columns(2)
-                    with b1:
-                        if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True):
-                            st.session_state.selected_project = p
-                            _switch_page("企業分析", p)
-                    with b2:
-                        if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True):
-                            st.session_state.selected_project = p
-                            _switch_page("スライド作成", p)
+                        b1, b2 = st.columns(2)
+                        with b1:
+                            if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True):
+                                st.session_state.selected_project = p
+                                _switch_page("企業分析", p)
+                        with b2:
+                            if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True):
+                                st.session_state.selected_project = p
+                                _switch_page("スライド作成", p)

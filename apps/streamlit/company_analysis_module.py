@@ -1,41 +1,48 @@
-"""
-企業分析モジュール
-app.py と並列に配置して、サイドバーなしで動作
-"""
+import os
 import requests
 import streamlit as st
 from typing import List
 from pathlib import Path
+
 from lib.company_analysis.data import SearchHit
 from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search
 )
 
-# ★ 追加：APIクライアント（履歴の保存/復元に使用）
-from lib.api import get_api_client, APIError  # ← 追加
+# 履歴の保存/復元
+from lib.api import get_api_client, APIError
 
-# 共通スタイルモジュールのインポート
+# 共通スタイル（HTML生成もstyles側に集約）
 from lib.styles import (
-    apply_main_styles, 
+    apply_main_styles,
     apply_logo_styles,
     apply_scroll_script,
-    apply_chat_scroll_script
+    apply_chat_scroll_script,
+    apply_title_styles,
+    apply_company_analysis_page_styles,   # ← ページ専用CSS注入
+    render_sidebar_logo_card,             # ← ロゴカードHTMLをstyles側で描画
+    render_company_analysis_title,        # ← タイトルh1をstyles側で描画
 )
 
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
+ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
 
 @st.cache_data(show_spinner=False)
 def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     """
-    Tavily search for web information. Requires TAVILY_API_KEY in env.
+    Tavily search for web information.
+    - TAVILY_API_KEY は st.secrets または 環境変数 から取得
     """
-    key = "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"
+    # 環境変数を優先し、st.secretsをフォールバックとして使用
+    key = os.getenv("TAVILY_API_KEY", "")
+
     hits: List[SearchHit] = []
     if not key:
+        # APIキーが設定されていない場合は空の結果を返す
         return hits
 
     r = requests.post(
@@ -68,204 +75,166 @@ def run_search(query: str, count: int = 8) -> List[SearchHit]:
 
 
 def render_company_analysis_page():
-    """企業分析ページをレンダリング"""
-    
-    # 共通スタイルを適用（案件一覧ページと同じ）
-    apply_main_styles()
+    """企業分析ページをレンダリング（常時チャット＋サイドバー上ロゴ＋タイトル上詰め）"""
+
+    # set_page_config は最上流で1回だけ。複数回呼ばれても例外にするので握りつぶす。
+    try:
+        st.set_page_config(
+            page_title="企業分析",
+            page_icon=str(ICON_PATH),  # ← Pathはstrに
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+    except Exception:
+        pass
+
+    # ==== 案件コンテキスト ====
+    if st.session_state.get("selected_project"):
+        project_data = st.session_state.selected_project
+        default_company = project_data.get("company", "")
+        item_id = project_data.get("id")
+        title_text = f"{project_data['title']} - {project_data['company']}の分析"
+    else:
+        default_company = ""
+        item_id = None
+        title_text = "企業分析"
+
+    # ==== スタイル適用 ====
+    # サイドバーを表示（hide_sidebar=False）。ヘッダは非表示のまま（hide_header=True）。
+    apply_main_styles(hide_sidebar=False, hide_header=True)
     apply_scroll_script()
-    
-    # タイトルとロゴを横並びで表示（案件一覧ページと同じ比率）
-    header_col1, header_col2 = st.columns([3, 0.5])
-    
-    with header_col1:
-        # 動的タイトルを表示（位置を上に調整）
-        if st.session_state.get("selected_project"):
-            project_data = st.session_state.selected_project
-            # 案件名と企業名を含むタイトル（案件一覧ページと同じスタイル）
-            st.title(f"{project_data['title']} - {project_data['company']}の分析")
-            default_company = project_data.get('company', '')
-            item_id = project_data.get('id')
-        else:
-            # デフォルトタイトル（案件一覧ページと同じスタイル）
-            st.title("企業分析")
-            default_company = ""
-            item_id = None
-    
-    with header_col2:
-        # ロゴを右上に配置（案件一覧ページと同じ高さに調整）
-        st.markdown("")  # 少し下にスペース
-        try:
-            # ロゴ画像を表示（共通スタイルモジュールから適用）
-            apply_logo_styles()
-            st.image(str(LOGO_PATH), width=160, use_container_width=False)
-        except FileNotFoundError:
-            st.info(f"ロゴ画像が見つかりません: {LOGO_PATH}")
-        except Exception as e:
-            st.warning(f"ロゴの読み込みエラー: {e}")
-    
-    # 戻るボタン
-    if st.button("← 案件一覧に戻る"):
-        st.session_state.current_page = "案件一覧"
-        st.session_state.page_changed = True  # ページ変更フラグを設定
-        st.rerun()
+    apply_logo_styles()
+    apply_title_styles()
+    apply_company_analysis_page_styles()   # ← 本ページ専用のCSS（上詰め & サイドバー圧縮 & ロゴカード）
 
-    # ---- ここから、フォーム/チャットの切替（既定はチャットモード）----
-    mode = st.radio("モード", ["フォーム", "チャット"], index=1, horizontal=True)
+    # ==== 左サイドバー ====
+    with st.sidebar:
+        # --- ロゴ（白背景ラウンドボックス） ---
+        render_sidebar_logo_card(LOGO_PATH)
 
-    # 設定（横並び）
-    col1, col2 = st.columns(2)
-    with col1:
-        top_k = st.number_input("検索結果件数", 1, 10, 6, 1)
-    with col2:
+        # 企業名
+        company = st.text_input(
+            "企業名",
+            value=default_company,
+            key="company_input",
+            placeholder="例）大塚商会、NTTデータ など"
+        )
+
+        # Web検索の有無
         use_web_search = st.checkbox(
             "Web検索を使用",
             value=True,
+            key="use_web_search_checkbox",
             help=(
-                "チェックすると企業名でWeb検索を実行し、"
-                "その結果とユーザー入力をもとに分析します。"
-                "チェックしない場合はユーザー入力のみを使用します。"
+                "オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\n"
+                "オフ：ユーザー入力のみをもとに分析"
             )
         )
 
-    company = st.text_input("企業名", value=default_company)
+        # 検索結果件数
+        top_k = st.number_input(
+            "検索結果件数",
+            min_value=1,
+            max_value=10,
+            value=6,
+            step=1,
+            key="top_k_input"
+        )
 
-    # =========================
-    #  A) フォームモード（既存のまま）
-    # =========================
-    if mode == "フォーム":
-        # ユーザー入力フィールド（web検索を使用しない場合に重要）
-        if not use_web_search:
-            user_input = st.text_area(
-                "分析したい内容や質問を入力してください",
-                placeholder="例：この企業の強みは何ですか？市場での競争力はどうですか？",
-                help="Web検索を使用しない場合、この入力内容をもとにLLMが分析を行います。"
-            )
-        else:
-            user_input = ""
-        
-        run = st.button("調べる")
+        # 履歴参照件数
+        history_count = st.selectbox(
+            "直近の履歴を何件参照する",
+            options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            index=2,  # デフォルト3件
+            key="history_reference_count_select",
+            help="チャット回答時に過去の履歴を文脈として参照します"
+        )
+        st.session_state.history_reference_count = history_count
 
-        if run and company.strip():
-            if use_web_search:
-                # Web検索を使用する場合
-                st.info("Web検索中…")
-                try:
-                    hits = run_search(company.strip(), count=int(top_k))
-
-                    if not hits:
-                        st.error(
-                            "検索結果が見つかりませんでした。"
-                            "TAVILY_API_KEY を設定してください。"
-                        )
-                        return
-
-                    st.success(f"検索ヒット: {len(hits)} 件")
-                    with st.expander(
-                        "根拠（検索スニペット）を見る", 
-                        expanded=False
-                    ):
-                        for h in hits:
-                            pub = f"（{h.published}）" if h.published else ""
-                            st.markdown(
-                                f"- **{h.title}** {pub}\n  \n  "
-                                f"{h.snippet}\n  \n  {h.url}"
-                            )
-
-                    with st.spinner("LLMで要約中…"):
-                        report = company_briefing_with_web_search(
-                            company.strip(), hits
-                        )
-                        
-                except Exception as e:
-                    st.error(f"Web検索中にエラーが発生しました: {str(e)}")
-                    return
-            else:
-                # Web検索を使用しない場合
-                if not user_input.strip():
-                    st.error(
-                        "Web検索を使用しない場合は、"
-                        "分析したい内容や質問を入力してください。"
-                    )
-                    return
-                    
-                with st.spinner("LLMで分析中…"):
-                    try:
-                        report = company_briefing_without_web_search(
-                            company.strip(),
-                            user_input.strip()
-                        )
-                    except Exception as e:
-                        st.error(f"LLM分析中にエラーが発生しました: {str(e)}")
-                        return
-
-            # レポートの表示
-            try:
-                st.markdown(str(report))
-            except Exception as e:
-                st.error(f"レポート表示中にエラーが発生しました: {str(e)}")
-                st.write("エラーが発生しましたが、以下が取得できました:")
-                st.json(
-                    report.to_dict() if hasattr(report, 'to_dict') 
-                    else str(report)
-                )
-
-    # =========================
-    #  B) チャットモード（追加）
-    # =========================
-    else:
-        # --- 履歴（セッション & サーバ連携） ---
-        if "chat_messages" not in st.session_state:
+        # 画面内チャット履歴クリア（サーバ側は保持）
+        if st.button("画面内チャット履歴をクリア", use_container_width=True):
             st.session_state.chat_messages = []
-        # 案件があればサーバから復元（案件切替時のみ）
-        api = get_api_client()
-        if (item_id is not None and 
-                st.session_state.get("chat_loaded_item_id") != item_id):
+            st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
+            st.rerun()
+
+        st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
+        if st.button("← 案件一覧に戻る", use_container_width=True):
+            st.session_state.current_page = "案件一覧"
+            st.session_state.page_changed = True
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ==== 本文ヘッダ（タイトルのみ） ====
+    render_company_analysis_title(title_text)  # ← HTMLはstyles側
+
+    # ==== 本文：常時チャット ====
+    # 履歴（セッション & サーバ連携）
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+
+    api = get_api_client()
+    if (item_id is not None and
+            st.session_state.get("chat_loaded_item_id") != item_id):
+        try:
+            msgs = api.get_item_messages(item_id)
+            st.session_state.chat_messages = [
+                {"role": m.get("role", "assistant"), "content": m.get("content", "")}
+                for m in (msgs or [])
+            ]
+        except APIError as e:
+            st.warning(f"チャット履歴の取得に失敗しました: {e}")
+        except Exception as e:
+            st.warning(f"チャット履歴の取得に失敗しました: {e}")
+        st.session_state.chat_loaded_item_id = item_id
+
+    # 履歴表示
+    for m in st.session_state.chat_messages:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+
+    # 自動スクロール（最下部へ）
+    if st.session_state.chat_messages:
+        apply_chat_scroll_script()
+
+    # 入力欄（チャットのみ）
+    prompt = st.chat_input("この企業について知りたいことを入力…")
+    if prompt:
+        # 1) ユーザー発言の即時表示
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # 2) 履歴へ格納 & サーバ保存
+        st.session_state.chat_messages.append({"role": "user", "content": prompt})
+        if item_id is not None:
             try:
-                msgs = api.get_item_messages(item_id)
-                st.session_state.chat_messages = [
-                    {"role": m.get("role", "assistant"), 
-                     "content": m.get("content", "")}
-                    for m in msgs or []
-                ]
-            except APIError as e:
-                st.warning(f"チャット履歴の取得に失敗しました: {e}")
+                api.post_item_message(item_id, "user", prompt)
             except Exception as e:
-                st.warning(f"チャット履歴の取得に失敗しました: {e}")
-            st.session_state.chat_loaded_item_id = item_id
+                st.error(f"サーバ保存に失敗しました（user）: {e}")
 
-        # --- 履歴表示 ---
-        for m in st.session_state.chat_messages:
-            with st.chat_message(m["role"]):
-                st.markdown(m["content"])
-        
-        # 自動スクロール機能（一番下にスクロール）
-        if st.session_state.chat_messages:
-            apply_chat_scroll_script()
+        # 3) LLM呼び出し
+        with st.chat_message("assistant"):
+            try:
+                # 直近の履歴（ユーザー/アシスタント往復×N件）
+                history_n = st.session_state.get("history_reference_count", 3)
+                recent_history = (
+                    st.session_state.chat_messages[-history_n*2:]
+                    if len(st.session_state.chat_messages) > history_n*2
+                    else st.session_state.chat_messages
+                )
+                context = "過去のチャット履歴:\n"
+                for msg in recent_history:
+                    role = "ユーザー" if msg["role"] == "user" else "アシスタント"
+                    context += f"{role}: {msg['content']}\n\n"
 
-        # --- 送信欄 ---
-        prompt = st.chat_input("この企業について知りたいことを入力…")
-        if prompt:
-            # 1) ユーザー発言を即座に表示
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            
-            # 2) ユーザー発言を履歴 & サーバに保存
-            st.session_state.chat_messages.append(
-                {"role": "user", "content": prompt}
-            )
-            if item_id is not None:
-                try:
-                    api.post_item_message(item_id, "user", prompt)
-                except Exception as e:
-                    st.error(f"サーバ保存に失敗しました（user）: {e}")
-
-            # 3) LLM呼び出し（フォームと同じロジックを1ターンで実行）
-            with st.chat_message("assistant"):
-                try:
-                    if use_web_search:
+                if use_web_search:
+                    # 企業名がないとWeb検索できないのでガード
+                    if not ((company or "").strip() or default_company):
+                        st.warning("Web検索を使用する場合は、企業名を入力してください。")
+                        assistant_text = "企業名が未入力です。"
+                    else:
                         with st.spinner("Web検索→LLMで要約中…"):
                             hits = run_search(
-                                (company or "").strip() or default_company, 
+                                (company or "").strip() or default_company,
                                 count=int(top_k)
                             )
                             if not hits:
@@ -275,95 +244,38 @@ def render_company_analysis_page():
                                 )
                                 assistant_text = "検索結果が得られませんでした。"
                             else:
-                                # 過去のチャット履歴を取得（新しい順）
-                                history_count = st.session_state.get(
-                                    "history_reference_count", 3
-                                )
-                                recent_history = (
-                                    st.session_state.chat_messages[-history_count*2:] 
-                                    if len(st.session_state.chat_messages) > 
-                                        history_count*2 
-                                    else st.session_state.chat_messages
-                                )
-                                
-                                # 履歴をコンテキストとして追加
-                                context = "過去のチャット履歴:\n"
-                                for msg in recent_history:
-                                    role = ("ユーザー" if msg["role"] == "user" 
-                                           else "アシスタント")
-                                    context += f"{role}: {msg['content']}\n\n"
-                                
                                 report = company_briefing_with_web_search(
-                                    (company or "").strip() or default_company, 
+                                    (company or "").strip() or default_company,
                                     hits,
                                     context
                                 )
-                                # チャット内にレポートを直接描画
                                 st.markdown(str(report))
-                                # レポート内容をそのまま履歴に保存
                                 assistant_text = str(report)
-                    else:
-                        with st.spinner("LLMで分析中…"):
-                            if not company.strip():
-                                st.warning("企業名を入力してください。")
-                                assistant_text = "企業名が未入力です。"
-                            else:
-                                # 過去のチャット履歴を取得（新しい順）
-                                history_count = st.session_state.get(
-                                    "history_reference_count", 3
-                                )
-                                recent_history = (
-                                    st.session_state.chat_messages[-history_count*2:] 
-                                    if len(st.session_state.chat_messages) > 
-                                        history_count*2 
-                                    else st.session_state.chat_messages
-                                )
-                                
-                                # 履歴をコンテキストとして追加
-                                context = "過去のチャット履歴:\n"
-                                for msg in recent_history:
-                                    role = ("ユーザー" if msg["role"] == "user" 
-                                           else "アシスタント")
-                                    context += f"{role}: {msg['content']}\n\n"
-                                
-                                report = company_briefing_without_web_search(
-                                    company.strip(), 
-                                    prompt.strip(),
-                                    context
-                                )
-                                st.markdown(str(report))
-                                # レポート内容をそのまま履歴に保存
-                                assistant_text = str(report)
-                except Exception as e:
-                    assistant_text = f"LLM分析中にエラーが発生しました: {e}"
-                    st.error(assistant_text)
+                else:
+                    # Web検索なしで、ユーザー入力＋文脈のみ
+                    with st.spinner("LLMで分析中…"):
+                        target_company = (company or "").strip() or default_company
+                        if not target_company:
+                            st.warning("企業名を入力してください。")
+                            assistant_text = "企業名が未入力です。"
+                        else:
+                            report = company_briefing_without_web_search(
+                                target_company,
+                                prompt.strip(),
+                                context
+                            )
+                            st.markdown(str(report))
+                            assistant_text = str(report)
+            except Exception as e:
+                assistant_text = f"LLM分析中にエラーが発生しました: {e}"
+                st.error(assistant_text)
 
-            # 4) アシスタントの出力内容を履歴/サーバに保存
-            st.session_state.chat_messages.append(
-                {"role": "assistant", "content": assistant_text}
-            )
-            if item_id is not None:
-                try:
-                    api.post_item_message(item_id, "assistant", assistant_text)
-                except Exception as e:
-                    st.error(f"サーバ保存に失敗しました（assistant）: {e}")
-
-        # チャット履歴クリアオプション
-        with st.expander("オプション"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("この案件のチャット履歴（画面のみ）をクリア"):
-                    st.session_state.chat_messages = []
-                    st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
-                    st.rerun()  # 画面を即座に更新
-            
-            with col2:
-                # 履歴参照件数の選択（最大10件）
-                history_count = st.selectbox(
-                    "履歴参照件数",
-                    options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                    index=2,  # デフォルト3件
-                    help="参照する過去のチャット履歴の件数（最大10件）"
-                )
-                st.session_state.history_reference_count = history_count
+        # 4) アシスタント応答を履歴 & サーバ保存
+        st.session_state.chat_messages.append(
+            {"role": "assistant", "content": assistant_text}
+        )
+        if item_id is not None:
+            try:
+                api.post_item_message(item_id, "assistant", assistant_text)
+            except Exception as e:
+                st.error(f"サーバ保存に失敗しました（assistant）: {e}")

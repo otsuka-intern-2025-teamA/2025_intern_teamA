@@ -16,7 +16,6 @@ from slide_generation_module import render_slide_generation_page
 # 共通スタイル + HTMLヘルパー
 from lib.styles import (
     apply_main_styles,
-    apply_logo_styles,
     apply_scroll_script,
     apply_title_styles,              # ← タイトルの基本スタイルを適用
     apply_projects_list_page_styles, # ← このページ専用CSS（サイドバー圧縮/ロゴカード等）
@@ -39,7 +38,6 @@ st.set_page_config(
 
 # ---- 共通スタイル適用（サイドバーを出す）
 apply_main_styles(hide_sidebar=False, hide_header=True)
-apply_logo_styles()
 apply_title_styles()
 apply_scroll_script()
 apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/サイドバー圧縮

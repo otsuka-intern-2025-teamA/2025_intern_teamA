@@ -16,7 +16,6 @@ from lib.api import get_api_client, APIError
 # 共通スタイル（HTML生成もstyles側に集約）
 from lib.styles import (
     apply_main_styles,
-    apply_logo_styles,
     apply_scroll_script,
     apply_chat_scroll_script,
     apply_title_styles,
@@ -103,7 +102,6 @@ def render_company_analysis_page():
     # サイドバーを表示（hide_sidebar=False）。ヘッダは非表示のまま（hide_header=True）。
     apply_main_styles(hide_sidebar=False, hide_header=True)
     apply_scroll_script()
-    apply_logo_styles()
     apply_title_styles()
     apply_company_analysis_page_styles()   # ← 本ページ専用のCSS（上詰め & サイドバー圧縮 & ロゴカード）
 

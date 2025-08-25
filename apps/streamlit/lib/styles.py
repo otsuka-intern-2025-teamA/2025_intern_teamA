@@ -109,10 +109,6 @@ def get_logo_styles() -> str:
         border-radius: 0 !important;
         border: none !important;
     }
-    [data-testid="stImage"] img {
-        border-radius: 0 !important;
-        border: none !important;
-    }
     </style>
     """
 
@@ -135,21 +131,6 @@ def get_title_styles() -> str:
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
         line-height: 1.3 !important;
-    }
-    /* 企業分析ページのタイトル位置調整（基本値） */
-    .company-analysis-title {
-        margin-top: -0.5rem !important;
-        padding-top: 0 !important;
-    }
-    /* 案件一覧ページのタイトル位置調整（基本値） */
-    .projects-list-title {
-        margin-top: -0.5rem !important;
-        padding-top: 0 !important;
-    }
-    /* ★ スライド生成ページのタイトル位置調整（基本値） ← 追加 */
-    .slide-generation-title {
-        margin-top: -0.5rem !important;
-        padding-top: 0 !important;
     }
     </style>
     """
@@ -218,7 +199,8 @@ def get_company_analysis_page_styles() -> str:
     <style>
     /* タイトルをさらに上へ（企業分析ページ） */
     h1.company-analysis-title {
-        margin-top: -7.3rem !important;
+        font-size: 2.4rem !important;
+        margin-top: -3rem !important;
         margin-bottom: 0.75rem !important;
     }
     /* 本文側コンテナの上余白 */
@@ -284,6 +266,7 @@ def get_projects_list_page_styles() -> str:
     <style>
     /* タイトル上詰め（案件一覧ページ） */
     h1.projects-list-title {
+        font-size: 2.4rem !important;
         margin-top: -3.0rem !important;
         margin-bottom: 0.75rem !important;
     }
@@ -347,7 +330,8 @@ def get_slide_generation_page_styles() -> str:
     return """
     <style>
     h1.slide-generation-title {
-        margin-top: -8.5rem !important;   /* 必要に応じて -2.5〜-3.5rem で微調整 */
+        font-size: 2.4rem !important;
+        margin-top: -7.5rem !important;   /* 必要に応じて -2.5〜-3.5rem で微調整 */
         margin-bottom: 0.75rem !important;
     }
     /* LLM提案ビュー（text_area: disabled）の文字色を黒に */

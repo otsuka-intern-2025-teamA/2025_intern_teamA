@@ -248,7 +248,7 @@ else:
                         "transaction_count": item.get("transaction_count", 0),
                         "total_amount": item.get("total_amount", 0),
                         "last_order_date": item.get("last_order_date"),
-                        "latest_message": item.get("latest_assistant_message")
+                        "user_message_count": item.get("user_message_count", 0)
                     }
                     items.append(formatted_item)
                 
@@ -314,10 +314,8 @@ else:
                     else:
                         meta_info.append("・取引履歴：未リンク")
                     
-                    # 最新メッセージがある場合は追加
-                    if p.get("latest_message"):
-                        msg_preview = p["latest_message"][:50] + "..." if len(p["latest_message"]) > 50 else p["latest_message"]
-                        meta_info.append(f"・最新分析：{msg_preview}")
+                    # チャット回数を追加
+                    meta_info.append(f"・チャット回数：{p.get('user_message_count', 0)}回")
                     
                     st.markdown(
                         f'<div class="meta">{"".join([f"{info}<br>" for info in meta_info])}</div>',

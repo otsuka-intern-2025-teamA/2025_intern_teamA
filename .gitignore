@@ -3,7 +3,13 @@
 
 # Python仮想環境
 .venv
+venv
 
 # 特定ディレクトリのpycache
 **/__pycache__/**
 .mypy_cache/
+**/.DS_Store/**
+
+temp
+
+.gitignore

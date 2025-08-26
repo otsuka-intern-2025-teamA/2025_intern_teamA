@@ -20,7 +20,6 @@ import pandas as pd
 # 共通スタイル
 from lib.styles import (
     apply_main_styles,
-    apply_scroll_script,
     apply_title_styles,
     apply_company_analysis_page_styles,   # サイドバー圧縮/ロゴカード/下寄せCSSを流用
     apply_slide_generation_page_styles,
@@ -363,7 +362,6 @@ def render_slide_generation_page():
 
     # スタイル
     apply_main_styles(hide_sidebar=False, hide_header=True)
-    apply_scroll_script()
     apply_title_styles()
     apply_company_analysis_page_styles()  # サイドバー共通
     apply_slide_generation_page_styles()  # タイトル位置など

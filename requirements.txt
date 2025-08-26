@@ -76,7 +76,7 @@ ipykernel==6.30.1
     #   jupyter
     #   jupyter-console
     #   jupyterlab
-ipython==9.4.0
+ipython
     # via
     #   ipykernel
     #   ipywidgets
@@ -185,7 +185,6 @@ notebook-shim==0.2.4
     #   jupyterlab
     #   notebook
 numpy==2.3.2
-    # via interngpt5 (pyproject.toml)
 openai==1.100.1
     # via interngpt5 (pyproject.toml)
 overrides==7.7.0
@@ -351,6 +350,9 @@ widgetsnbextension==4.0.14
 pandas==2.3.1
 streamlit==1.48.1
 uuid
+
+python-pptx
+tavily-python
 sqlalchemy==2.0.43
 uvicorn==0.35.0
 fastapi==0.116.1

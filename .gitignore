@@ -7,3 +7,6 @@
 # 特定ディレクトリのpycache
 **/__pycache__/**
 .mypy_cache/
+
+# データベース
+data/sqlite/*.db

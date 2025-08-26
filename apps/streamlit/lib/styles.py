@@ -106,9 +106,6 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "section[data-testid='stSidebar'] .block-container {"
         "  padding-top: 0.25rem !important; padding-bottom: 0.8rem !important;"
         "}",
-        # サイドバーの下寄せエリアなどを使う場合の便利スタイル（任意）
-        ".sidebar-bottom { position: sticky; bottom: 0; padding-top: .5rem; background: #fff; }",
-
         "</style>",
     ]
     return "\n".join(css)

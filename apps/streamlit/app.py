@@ -373,6 +373,7 @@ else:
                     break
                 p = filtered[idx]
                 with col:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
                     with st.container(border=True):
                         h1, h2 = st.columns([10, 1])
                         with h1:
@@ -412,3 +413,4 @@ else:
                             if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True):
                                 st.session_state.selected_project = p
                                 _switch_page("スライド作成", p)
+                st.markdown('</div>', unsafe_allow_html=True)

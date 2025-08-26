@@ -2,11 +2,11 @@
 データベース接続設定
 SQLiteとSQLAlchemyの設定
 """
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from pathlib import Path
 import os
-from sqlalchemy import event
+from pathlib import Path
+
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
 
 # データベースファイルのパス設定
 DB_PATH = os.getenv("DATABASE_URL", "data/sqlite/app.db")
@@ -32,15 +32,20 @@ engine = create_engine(
     echo=False  # 開発時はTrueでSQLログを表示
 )
 
+
 # SQLiteでForeign Keyを有効化
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.close()
+
 
 # セッションファクトリの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def get_db():
     """
@@ -53,6 +58,7 @@ def get_db():
     finally:
         db.close()
 
+
 def init_db():
     """
     データベースの初期化
@@ -63,20 +69,19 @@ def init_db():
     # テーブル作成
     Base.metadata.create_all(bind=engine)
     
-    # スキーマファイルがある場合は実行（FTS5等の設定）
+    # スキーマファイルがある場合は実行(FTS5等の設定)
     schema_path = Path(__file__).parent.parent.parent.parent.parent / "data" / "ddl" / "schema.sql"
     if schema_path.exists():
-        with open(schema_path, 'r', encoding='utf-8') as f:
+        with open(schema_path, encoding='utf-8') as f:
             schema_sql = f.read()
         
-        # SQLiteに直接実行（SQLAlchemyでは実行できないFTS5等の設定）
+        # SQLiteに直接実行(SQLAlchemyでは実行できないFTS5等の設定)
         import sqlite3
         conn = sqlite3.connect(DB_PATH)
         try:
             conn.executescript(schema_sql)
             conn.commit()
-            print(f"Schema initialized from {schema_path}")
-        except Exception as e:
-            print(f"Schema initialization error: {e}")
+        except Exception:
+            pass
         finally:
             conn.close()

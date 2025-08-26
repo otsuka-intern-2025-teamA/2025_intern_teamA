@@ -2,16 +2,17 @@
 SQLAlchemyモデル定義
 案件管理システム用のデータベースモデル
 """
-from sqlalchemy import Column, String, Text, Float, ForeignKey, Index
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
+
+from sqlalchemy import Column, Float, ForeignKey, Index, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
 class Item(Base):
-    """案件（カード）モデル"""
+    """案件(カード)モデル"""
     __tablename__ = "items"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -40,7 +41,7 @@ class Message(Base):
     item = relationship("Item", back_populates="messages")
 
 class Product(Base):
-    """商材モデル（DatasetA統合）"""
+    """商材モデル(DatasetA統合)"""
     __tablename__ = "products"
     
     id = Column(String, primary_key=True)  # 生成UUID or ハッシュ
@@ -55,11 +56,11 @@ Index('idx_products_cat_name', Product.category, Product.name)
 Index('idx_products_category', Product.category)
 
 class History(Base):
-    """取引履歴モデル（案件専用）"""
+    """取引履歴モデル(案件専用)"""
     __tablename__ = "history"
     
     item_id = Column(String, ForeignKey("items.id", ondelete="CASCADE"), primary_key=True)
-    id = Column(String, primary_key=True)  # CSVのUUID（取引ID）
+    id = Column(String, primary_key=True)  # CSVのUUID(取引ID)
     order_date = Column(String)  # 発注日
     delivery_date = Column(String)  # 納期
     invoice_date = Column(String)  # 請求日

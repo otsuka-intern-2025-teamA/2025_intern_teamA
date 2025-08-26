@@ -1,28 +1,28 @@
 import os
-import requests
-import streamlit as st
-from typing import List
 from pathlib import Path
 
+import requests
+
+# 履歴の保存/復元
+from lib.api import APIError, get_api_client
 from lib.company_analysis.data import SearchHit
 from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search,
-    generate_tavily_queries 
+    generate_tavily_queries,
 )
 
-# 履歴の保存/復元
-from lib.api import get_api_client, APIError
-
-# 共通スタイル（HTML生成もstyles側に集約）
+# 共通スタイル(HTML生成もstyles側に集約)
 from lib.styles import (
-    apply_main_styles,
     apply_chat_scroll_script,
+    apply_company_analysis_page_styles,  # ← ページ専用CSS注入
+    apply_main_styles,
     apply_title_styles,
-    apply_company_analysis_page_styles,   # ← ページ専用CSS注入
-    render_sidebar_logo_card,             # ← ロゴカードHTMLをstyles側で描画
-    render_company_analysis_title,        # ← タイトルh1をstyles側で描画
+    render_company_analysis_title,  # ← タイトルh1をstyles側で描画
+    render_sidebar_logo_card,  # ← ロゴカードHTMLをstyles側で描画
 )
+
+import streamlit as st
 
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -31,7 +31,7 @@ ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
 
 @st.cache_data(show_spinner=False)
-def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
+def tavily_search(query: str, count: int = 6) -> list[SearchHit]:
     """
     Tavily search for web information.
     - TAVILY_API_KEY は st.secrets または 環境変数 から取得
@@ -39,7 +39,7 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     # 環境変数を優先し、st.secretsをフォールバックとして使用
     key = os.getenv("TAVILY_API_KEY", "")
 
-    hits: List[SearchHit] = []
+    hits: list[SearchHit] = []
     if not key:
         # APIキーが設定されていない場合は空の結果を返す
         return hits
@@ -68,13 +68,13 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     return hits
 
 
-def run_search(query: str, count: int = 8) -> List[SearchHit]:
-    """Web検索を実行（tavily）"""
+def run_search(query: str, count: int = 8) -> list[SearchHit]:
+    """Web検索を実行(tavily)"""
     return tavily_search(query, count=count)
 
 
 def render_company_analysis_page():
-    """企業分析ページをレンダリング（常時チャット＋サイドバー上ロゴ＋タイトル上詰め）"""
+    """企業分析ページをレンダリング(常時チャット+サイドバー上ロゴ+タイトル上詰め)"""
 
     # set_page_config は最上流で1回だけ。複数回呼ばれても例外にするので握りつぶす。
     try:
@@ -99,14 +99,14 @@ def render_company_analysis_page():
         title_text = "企業分析"
 
     # ==== スタイル適用 ====
-    # サイドバーを表示（hide_sidebar=False）。ヘッダは非表示のまま（hide_header=True）。
+    # サイドバーを表示(hide_sidebar=False)。ヘッダは非表示のまま(hide_header=True)。
     apply_main_styles(hide_sidebar=False, hide_header=True)
     apply_title_styles()
-    apply_company_analysis_page_styles()   # ← 本ページ専用のCSS（上詰め & サイドバー圧縮 & ロゴカード）
+    apply_company_analysis_page_styles()   # ← 本ページ専用のCSS(上詰め & サイドバー圧縮 & ロゴカード)
 
     # ==== 左サイドバー ====
     with st.sidebar:
-        # --- ロゴ（白背景ラウンドボックス） ---
+        # --- ロゴ(白背景ラウンドボックス) ---
         render_sidebar_logo_card(LOGO_PATH)
 
         # 企業名
@@ -148,7 +148,7 @@ def render_company_analysis_page():
         )
         st.session_state.history_reference_count = history_count
 
-        # 画面内チャット履歴クリア（サーバ側は保持）
+        # 画面内チャット履歴クリア(サーバ側は保持)
         if st.button("画面内チャット履歴をクリア", use_container_width=True):
             st.session_state.chat_messages = []
             st.success("画面上の履歴をクリアしました（サーバ側は保持）。")
@@ -161,11 +161,11 @@ def render_company_analysis_page():
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ==== 本文ヘッダ（タイトルのみ） ====
+    # ==== 本文ヘッダ(タイトルのみ) ====
     render_company_analysis_title(title_text)  # ← HTMLはstyles側
 
-    # ==== 本文：常時チャット ====
-    # 履歴（セッション & サーバ連携）
+    # ==== 本文:常時チャット ====
+    # 履歴(セッション & サーバ連携)
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
 
@@ -189,11 +189,11 @@ def render_company_analysis_page():
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    # 自動スクロール（最下部へ）
+    # 自動スクロール(最下部へ)
     if st.session_state.chat_messages:
         apply_chat_scroll_script()
 
-    # 入力欄（チャットのみ）
+    # 入力欄(チャットのみ)
     prompt = st.chat_input("この企業について知りたいことを入力…")
     if prompt:
         # 1) ユーザー発言の即時表示
@@ -211,7 +211,7 @@ def render_company_analysis_page():
         # 3) LLM呼び出し
         with st.chat_message("assistant"):
             try:
-                # 直近の履歴（ユーザー/アシスタント往復×N件）
+                # 直近の履歴(ユーザー/アシスタント往復×N件)
                 history_n = st.session_state.get("history_reference_count", 3)
                 recent_history = (
                     st.session_state.chat_messages[-history_n*2:]
@@ -252,7 +252,7 @@ def render_company_analysis_page():
                                 assistant_text = str(report)
 
                 else:
-                    # Web検索なしで、ユーザー入力＋文脈のみ
+                    # Web検索なしで、ユーザー入力+文脈のみ
                     with st.spinner("LLMで分析中…"):
                         target_company = (company or "").strip() or default_company
                         if not target_company:

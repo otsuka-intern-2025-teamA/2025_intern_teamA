@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 すべての修正をテストするスクリプト
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -14,15 +12,17 @@ sys.path.insert(0, str(project_root))
 
 # 環境変数の読み込み
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from apps.streamlit.lib.slide_generator import SlideGenerator
+
 
 def test_all_fixes():
     """すべての修正をテスト"""
     print("=== すべての修正のテストを開始 ===")
     
-    # テストデータ（様々な問題を含む）
+    # テストデータ(様々な問題を含む)
     company_name = "テスト企業株式会社"
     meeting_notes = "テスト用の商談詳細です。"
     products = [
@@ -74,12 +74,12 @@ def test_all_fixes():
         generator = SlideGenerator()
         print("✓ スライド生成器の初期化完了")
         
-        # 総コスト計算のテスト（NaN対策）
+        # 総コスト計算のテスト(NaN対策)
         print("\n2. 総コスト計算のテスト（NaN対策）...")
         total_cost = generator.calculate_total_cost(products)
         print(f"✓ 総コスト計算完了: {total_cost}")
         
-        # 企業課題分析のテスト（API使用なし）
+        # 企業課題分析のテスト(API使用なし)
         print("\n3. 企業課題分析のテスト（API使用なし）...")
         challenges = generator.analyze_company_challenges(
             company_name, 
@@ -88,7 +88,7 @@ def test_all_fixes():
         )
         print(f"✓ 企業課題分析完了: {challenges}")
         
-        # 製品情報検索のテスト（API使用なし）
+        # 製品情報検索のテスト(API使用なし)
         print("\n4. 製品情報検索のテスト（API使用なし）...")
         product_info = generator.search_product_info(
             "テスト製品",
@@ -98,7 +98,7 @@ def test_all_fixes():
         )
         print(f"✓ 製品情報検索完了: {product_info}")
         
-        # プレゼンテーション生成のテスト（API使用なし）
+        # プレゼンテーション生成のテスト(API使用なし)
         print("\n5. プレゼンテーション生成のテスト（API使用なし）...")
         pptx_data = generator.create_presentation(
             company_name=company_name,
@@ -135,7 +135,7 @@ def test_all_fixes():
         return False
 
 def test_api_connection():
-    """API接続のテスト（オプション）"""
+    """API接続のテスト(オプション)"""
     print("\n=== API接続のテスト（オプション） ===")
     
     try:
@@ -172,7 +172,7 @@ def main():
     # 基本テスト
     basic_success = test_all_fixes()
     
-    # API接続テスト（オプション）
+    # API接続テスト(オプション)
     api_success = test_api_connection()
     
     print("\n=== 最終結果 ===")

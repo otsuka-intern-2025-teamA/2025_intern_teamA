@@ -11,22 +11,21 @@ ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 
 # 企業分析/スライド作成モジュール
 from company_analysis_module import render_company_analysis_page
-from slide_generation_module import render_slide_generation_page
+
+# API クライアント
+from lib.api import APIError, api_available, format_date, get_api_client
 
 # 共通スタイル + HTMLヘルパー
 from lib.styles import (
     apply_main_styles,
-    apply_title_styles,              # ← タイトルの基本スタイルを適用
-    apply_projects_list_page_styles, # ← このページ専用CSS（サイドバー圧縮/ロゴカード等）
-    render_sidebar_logo_card,        # ← サイドバー上部ロゴ
-    render_projects_list_title,      # ← タイトル描画
+    apply_projects_list_page_styles,  # ← このページ専用CSS(サイドバー圧縮/ロゴカード等)
+    apply_title_styles,  # ← タイトルの基本スタイルを適用
+    render_projects_list_title,  # ← タイトル描画
+    render_sidebar_logo_card,  # ← サイドバー上部ロゴ
 )
+from slide_generation_module import render_slide_generation_page
 
-# API クライアント
-from lib.api import get_api_client, api_available, format_date, APIError
-
-
-# ---- ページ設定（最初に実行）
+# ---- ページ設定(最初に実行)
 st.set_page_config(
     page_title="案件一覧",
     page_icon=str(ICON_PATH),
@@ -35,7 +34,7 @@ st.set_page_config(
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
-# ---- 共通スタイル適用（サイドバーを出す）
+# ---- 共通スタイル適用(サイドバーを出す)
 apply_main_styles(hide_sidebar=False, hide_header=True)
 apply_title_styles()
 apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/サイドバー圧縮
@@ -63,7 +62,7 @@ def _fmt(d):
 
 
 def _to_dt(v) -> datetime:
-    """安全に日時へ。失敗したら最小値で返す（古い順などの安定ソート用）"""
+    """安全に日時へ。失敗したら最小値で返す(古い順などの安定ソート用)"""
     if isinstance(v, datetime):
         return v
     s = str(v) if v is not None else ""
@@ -217,7 +216,7 @@ else:
 
     # ---------- サイドバー ----------
     with st.sidebar:
-        # ロゴ（白背景ラウンドボックス）
+        # ロゴ(白背景ラウンドボックス)
         render_sidebar_logo_card(LOGO_PATH)
 
         # 並び替え
@@ -317,7 +316,7 @@ else:
 
     items = fetch_items_from_api()
 
-    # ---------- 検索・フィルタ適用（※ 総取引額下限なし） ----------
+    # ---------- 検索・フィルタ適用(※ 総取引額下限なし) ----------
     def _match_keyword(p, kw: str) -> bool:
         if not kw:
             return True
@@ -338,7 +337,7 @@ else:
             continue
         filtered.append(p)
 
-    # ---------- 並び替え（※ 金額/回数/最終発注日は除外） ----------
+    # ---------- 並び替え(※ 金額/回数/最終発注日は除外) ----------
     sort_map = {
         "最終更新（新しい順）":  lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
         "最終更新（古い順）":    lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
@@ -358,7 +357,7 @@ else:
     }
     filtered.sort(key=key_fn, reverse=reverse)
 
-    # ---------- カード描画（1行＝2列固定） ----------
+    # ---------- カード描画(1行=2列固定) ----------
     if not filtered:
         st.info("表示できる案件がありません。検索条件やフィルタを見直してください。")
     else:

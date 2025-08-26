@@ -2,8 +2,8 @@
 """
 データベースの内容を確認するスクリプト
 """
-import sqlite3
 import argparse
+import sqlite3
 from pathlib import Path
 
 

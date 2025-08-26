@@ -3,24 +3,26 @@ RAG検索・企業分析API
 企業分析用のRAG処理とデータ取得機能
 シンプルなdict形式でデータをやり取り
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
-from typing import List, Dict, Any, Optional
 import json
 import logging
+from typing import Any
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from ...db.models import History, Item, Message, Product
 from ...db.session import get_db
-from ...db.models import Item, Message, History, Product
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 @router.post("/query")
 def analyze_company(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     企業分析を実行
     指定された案件のコンテキストを使用してRAG処理を行う
@@ -29,7 +31,7 @@ def analyze_company(
     {
         "item_id": "案件ID",
         "question": "質問内容",
-        "company_name": "企業名（オプション）",
+        "company_name": "企業名(オプション)",
         "top_k": 5
     }
     """
@@ -50,7 +52,7 @@ def analyze_company(
             detail="Item not found"
         )
     
-    # 企業名の設定（リクエストで指定されていない場合は案件の企業名を使用）
+    # 企業名の設定(リクエストで指定されていない場合は案件の企業名を使用)
     target_company = data.get("company_name") or item.company_name
     top_k = data.get("top_k", 5)
     
@@ -58,7 +60,7 @@ def analyze_company(
         # コンテキスト情報を収集
         context_data = _gather_context(db, item_id, target_company, question, top_k)
         
-        # ここで実際のLLM処理を行う（現在はモック）
+        # ここで実際のLLM処理を行う(現在はモック)
         # TODO: 実際のRAG処理を実装
         analysis_result = _mock_analysis(target_company, question, context_data)
         
@@ -104,9 +106,9 @@ def analyze_company(
 
 @router.post("/history/load")
 def load_history(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     取引履歴を案件にロード
     外部スクリプトを呼び出してCSVデータを取り込む
@@ -163,7 +165,7 @@ def _gather_context(
     company_name: str,
     question: str,
     top_k: int = 5
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     企業分析用のコンテキスト情報を収集
     """
@@ -176,7 +178,7 @@ def _gather_context(
     }
     
     try:
-        # 1. 過去の会話履歴から関連メッセージを検索（FTS5使用）
+        # 1. 過去の会話履歴から関連メッセージを検索(FTS5使用)
         # 実際の実装では、questionに基づいたFTS検索を行う
         messages = db.query(Message).filter(
             Message.item_id == item_id
@@ -223,7 +225,7 @@ def _gather_context(
     
     return context
 
-def _mock_analysis(company_name: str, question: str, context: Dict[str, Any]) -> str:
+def _mock_analysis(company_name: str, question: str, context: dict[str, Any]) -> str:
     """
     企業分析のモック処理
     実際の実装では、LLMを使用して分析を行う

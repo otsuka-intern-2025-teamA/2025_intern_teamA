@@ -1,9 +1,10 @@
 # llm.py
 import json
-from typing import List
-from .data import SearchHit
+
+from openai import AzureOpenAI, OpenAI
+
 from .config import get_settings
-from openai import OpenAI, AzureOpenAI
+from .data import SearchHit
 
 
 def get_client():
@@ -17,7 +18,7 @@ def get_client():
     return OpenAI(api_key=s.openai_api_key)
 
 # 自然言語クエリを生成
-def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> List[str]:
+def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> list[str]:
 
     s = get_settings()
     client = get_client()
@@ -61,10 +62,10 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
         data = json.loads(content)
         queries = data.get("queries", [])
     except Exception:
-        # 失敗時フォールバック：最低限のクエリ
+        # 失敗時フォールバック:最低限のクエリ
         queries = []
 
-    # 後処理：空・重複を除去、上限数で切る
+    # 後処理:空・重複を除去、上限数で切る
     cleaned = []
     seen = set()
     for q in queries:
@@ -92,7 +93,7 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
 
 
 def company_briefing_with_web_search(
-    company: str, hits: List[SearchHit], context: str = ""
+    company: str, hits: list[SearchHit], context: str = ""
 ) -> str:
     """Web検索結果を使用した企業分析"""
     s = get_settings()
@@ -109,7 +110,7 @@ def company_briefing_with_web_search(
     else:
         model_name = s.default_model
 
-    # 参考情報を軽くまとめる（検索なし運用でも空でOK）
+    # 参考情報を軽くまとめる(検索なし運用でも空でOK)
     evidence = [
         {
             "title": h.title,
@@ -250,7 +251,7 @@ def company_briefing_without_web_search(
 
 # 後方互換性のため既存の関数名も保持
 def company_briefing(
-    company: str, hits: List[SearchHit], context: str = ""
+    company: str, hits: list[SearchHit], context: str = ""
 ) -> str:
-    """後方互換性のための関数（company_briefing_with_web_searchと同じ）"""
+    """後方互換性のための関数(company_briefing_with_web_searchと同じ)"""
     return company_briefing_with_web_search(company, hits, context)

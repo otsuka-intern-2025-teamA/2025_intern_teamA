@@ -2,13 +2,14 @@
 FastAPIアプリケーションのエントリーポイント
 案件管理システムの中心的なAPIサーバー
 """
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import logging
 
+from .api.routers import analysis, cases, messages
 from .db.session import init_db
-from .api.routers import cases, analysis, messages
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +40,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS設定（Streamlitフロントエンドからのアクセスを許可）
+# CORS設定(Streamlitフロントエンドからのアクセスを許可)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],  # Streamlitデフォルトポート
@@ -65,8 +66,8 @@ async def root():
 @app.get("/health")
 async def health_check():
     """詳細なヘルスチェック"""
-    from .db.session import SessionLocal
     from .db.models import Item
+    from .db.session import SessionLocal
     
     try:
         # データベース接続確認

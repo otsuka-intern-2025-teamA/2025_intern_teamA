@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 NaN値処理のテストスクリプト
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -14,15 +12,17 @@ sys.path.insert(0, str(project_root))
 
 # 環境変数の読み込み
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from apps.streamlit.lib.slide_generator import SlideGenerator
+
 
 def test_nan_handling():
     """NaN値処理のテスト"""
     print("NaN値処理のテストを開始...")
     
-    # テストデータ（NaN値を含む）
+    # テストデータ(NaN値を含む)
     company_name = "テスト企業株式会社"
     meeting_notes = "テスト用の商談詳細です。"
     products = [
@@ -69,7 +69,7 @@ def test_nan_handling():
         total_cost = generator.calculate_total_cost(products)
         print(f"✓ 総コスト計算完了: {total_cost}")
         
-        # プレゼンテーション生成のテスト（API使用なし）
+        # プレゼンテーション生成のテスト(API使用なし)
         print("プレゼンテーション生成中（API使用なし）...")
         pptx_data = generator.create_presentation(
             company_name=company_name,

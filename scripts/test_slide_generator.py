@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 スライド生成モジュールのテストスクリプト
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -14,9 +12,11 @@ sys.path.insert(0, str(project_root))
 
 # 環境変数の読み込み
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from apps.streamlit.lib.slide_generator import SlideGenerator
+
 
 def test_slide_generator():
     """スライド生成のテスト"""

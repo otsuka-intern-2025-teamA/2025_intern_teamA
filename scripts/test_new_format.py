@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 新しいプレゼンテーション形式のテストスクリプト
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -14,9 +12,11 @@ sys.path.insert(0, str(project_root))
 
 # 環境変数の読み込み
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from apps.streamlit.lib.slide_generator import SlideGenerator
+
 
 def test_new_format():
     """新しい形式のテスト"""
@@ -25,7 +25,7 @@ def test_new_format():
     # テストデータ
     company_name = "株式会社テスト企業"
     meeting_notes = """
-    当社は製造業を営んでおり、以下の課題を抱えています：
+    当社は製造業を営んでおり、以下の課題を抱えています:
     1. 生産性の向上が必要
     2. 在庫管理の最適化
     3. 品質管理の強化
@@ -67,12 +67,12 @@ def test_new_format():
         generator = SlideGenerator()
         print("✓ スライド生成器の初期化完了")
         
-        # 総コスト計算のテスト（ドル表示）
+        # 総コスト計算のテスト(ドル表示)
         print("\n2. 総コスト計算のテスト（ドル表示）...")
         total_cost = generator.calculate_total_cost(products)
         print(f"✓ 総コスト計算完了: ${total_cost:,}")
         
-        # プレゼンテーション生成のテスト（API使用なし）
+        # プレゼンテーション生成のテスト(API使用なし)
         print("\n3. 新しい形式でのプレゼンテーション生成...")
         pptx_data = generator.create_presentation(
             company_name=company_name,

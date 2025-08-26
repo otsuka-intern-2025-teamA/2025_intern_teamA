@@ -7,20 +7,19 @@
 # ---------------------------------------------------------
 
 from __future__ import annotations
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-import os
-import json
-import time
-from datetime import datetime
 
-import streamlit as st
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 from openai import AzureOpenAI
-from tavily import TavilyClient
 from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
+from tavily import TavilyClient
 
 # プロジェクトルートとパス設定
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -33,7 +32,7 @@ class SlideGenerator:
     """AIエージェントによるプレゼンテーション生成クラス"""
     
     def __init__(self):
-        """初期化：APIクライアントの準備"""
+        """初期化:APIクライアントの準備"""
         self.azure_client = None
         self.tavily_client = None
         # トークン設定
@@ -112,7 +111,7 @@ class SlideGenerator:
             if "max_tokens" in error_msg or "max_completion_tokens" in error_msg:
                 print(f"課題分析でエラーが発生: トークン設定の問題 - {e}")
             elif "Could not finish the message because max_tokens" in error_msg:
-                print(f"課題分析でエラーが発生: トークン制限に達しました。より高いmax_completion_tokensを設定してください。")
+                print("課題分析でエラーが発生: トークン制限に達しました。より高いmax_completion_tokensを設定してください。")
             elif "400" in error_msg or "invalid_request_error" in error_msg:
                 print(f"課題分析でエラーが発生: APIリクエストの問題 - {e}")
             else:
@@ -125,7 +124,7 @@ class SlideGenerator:
         product_category: str, 
         tavily_uses: int = 1,
         use_tavily: bool = True
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """製品情報のウェブ検索"""
         if not use_tavily or not self.tavily_client or tavily_uses <= 0:
             return {
@@ -185,7 +184,7 @@ class SlideGenerator:
                     except:
                         pass
                 
-                # フォールバック：検索結果を直接使用
+                # フォールバック:検索結果を直接使用
                 return {
                     "description": content[:200] + "..." if len(content) > 200 else content,
                     "features": "検索結果から抽出された特徴",
@@ -197,7 +196,7 @@ class SlideGenerator:
             if "max_tokens" in error_msg or "max_completion_tokens" in error_msg:
                 print(f"製品情報検索でエラーが発生: トークン設定の問題 - {e}")
             elif "Could not finish the message because max_tokens" in error_msg:
-                print(f"製品情報検索でエラーが発生: トークン制限に達しました。より高いmax_completion_tokensを設定してください。")
+                print("製品情報検索でエラーが発生: トークン制限に達しました。より高いmax_completion_tokensを設定してください。")
             elif "400" in error_msg or "invalid_request_error" in error_msg:
                 print(f"製品情報検索でエラーが発生: APIリクエストの問題 - {e}")
             else:
@@ -209,8 +208,8 @@ class SlideGenerator:
             "features": "あいうえお"
         }
     
-    def calculate_total_cost(self, products: List[Dict[str, Any]]) -> float:
-        """総コストの計算（ドル表示、NaN対策）"""
+    def calculate_total_cost(self, products: list[dict[str, Any]]) -> float:
+        """総コストの計算(ドル表示、NaN対策)"""
         total = 0.0
         for product in products:
             price = product.get("price")
@@ -230,7 +229,7 @@ class SlideGenerator:
         self,
         company_name: str,
         meeting_notes: str,
-        products: List[Dict[str, Any]],
+        products: list[dict[str, Any]],
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
@@ -254,14 +253,14 @@ class SlideGenerator:
         prs.slide_width = Inches(13.33)
         prs.slide_height = Inches(7.5)
         
-        # 1. タイトルスライド（案件名 + 企業名）
+        # 1. タイトルスライド(案件名 + 企業名)
         self._create_title_slide(prs, company_name)
         
         # 2. 現状の課題スライド
         challenges = self.analyze_company_challenges(company_name, meeting_notes, use_gpt)
         self._create_challenges_slide(prs, company_name, challenges)
         
-        # 3. 各製品の提案スライド（各製品を個別スライドに）
+        # 3. 各製品の提案スライド(各製品を個別スライドに)
         for i, product in enumerate(products, 1):
             try:
                 product_info = self.search_product_info(
@@ -271,7 +270,7 @@ class SlideGenerator:
                     use_tavily
                 )
                 self._create_product_slide(prs, product, product_info, i)
-            except Exception as e:
+            except Exception:
                 # 製品スライド作成でエラーが発生した場合のフォールバック
                 fallback_product = {
                     "id": product.get("id", f"error-{i}"),
@@ -299,24 +298,24 @@ class SlideGenerator:
         return output.getvalue()
     
     def _create_title_slide(self, prs: Presentation, company_name: str):
-        """タイトルスライドの作成（案件名 + 企業名）"""
+        """タイトルスライドの作成(案件名 + 企業名)"""
         slide_layout = prs.slide_layouts[6]  # 空白レイアウト
         slide = prs.slides.add_slide(slide_layout)
         
-        # ロゴの追加（左上、小さなサイズ）
+        # ロゴの追加(左上、小さなサイズ)
         print(f"ロゴ追加試行: {LOGO_PATH}")
         if LOGO_PATH.exists():
             try:
                 slide.shapes.add_picture(str(LOGO_PATH), Inches(0.5), Inches(0.3), height=Inches(0.6))
                 print("✓ ロゴの追加成功")
             except Exception as e:
-                # ロゴの追加に失敗した場合のログ（デバッグ用）
+                # ロゴの追加に失敗した場合のログ(デバッグ用)
                 print(f"ロゴの追加に失敗: {e}")
                 pass
         else:
             print(f"❌ ロゴファイルが存在しません: {LOGO_PATH}")
         
-        # タイトル（案件名 + 企業名）
+        # タイトル(案件名 + 企業名)
         title_box = slide.shapes.add_textbox(Inches(2), Inches(2), Inches(9), Inches(1.5))
         title_frame = title_box.text_frame
         title_frame.text = f"案件提案書\n{company_name}"
@@ -346,7 +345,7 @@ class SlideGenerator:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # ロゴ（左上、小さなサイズ）
+        # ロゴ(左上、小さなサイズ)
         print(f"ロゴ追加試行: {LOGO_PATH}")
         if LOGO_PATH.exists():
             try:
@@ -381,17 +380,17 @@ class SlideGenerator:
             content_run.font.size = Pt(16)
             content_run.font.color.rgb = RGBColor(0, 0, 0)
     
-    def _create_product_slide(self, prs: Presentation, product: Dict[str, Any], product_info: Dict[str, str], product_num: int):
-        """製品提案スライドの作成（各製品を個別スライドに）"""
+    def _create_product_slide(self, prs: Presentation, product: dict[str, Any], product_info: dict[str, str], product_num: int):
+        """製品提案スライドの作成(各製品を個別スライドに)"""
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # ロゴ（左上、小さなサイズ）
+        # ロゴ(左上、小さなサイズ)
         if LOGO_PATH.exists():
             try:
                 slide.shapes.add_picture(str(LOGO_PATH), Inches(0.5), Inches(0.3), height=Inches(0.6))
             except Exception as e:
-                # ロゴの追加に失敗した場合のログ（デバッグ用）
+                # ロゴの追加に失敗した場合のログ(デバッグ用)
                 print(f"ロゴの追加に失敗: {e}")
                 pass
         
@@ -407,27 +406,27 @@ class SlideGenerator:
             title_run.font.size = Pt(24)
             title_run.font.bold = True
         
-        # 製品画像（左側、適切なサイズ）
+        # 製品画像(左側、適切なサイズ)
         print(f"製品画像追加試行: {PLACEHOLDER_IMG}")
         if PLACEHOLDER_IMG.exists():
             try:
                 slide.shapes.add_picture(str(PLACEHOLDER_IMG), Inches(1), Inches(2), height=Inches(3))
                 print("✓ 製品画像の追加成功")
             except Exception as e:
-                # 画像の追加に失敗した場合のログ（デバッグ用）
+                # 画像の追加に失敗した場合のログ(デバッグ用)
                 print(f"製品画像の追加に失敗: {e}")
                 pass
         else:
             print(f"❌ 製品画像ファイルが存在しません: {PLACEHOLDER_IMG}")
         
-        # 製品情報（右側）
+        # 製品情報(右側)
         info_box = slide.shapes.add_textbox(Inches(6), Inches(2), Inches(6), Inches(4.5))
         info_frame = info_box.text_frame
         
         # ご提案機器について
         info_frame.text = f"ご提案機器について\n{product_info.get('description', '')}\n\n導入メリット\n{product_info.get('benefits', '')}"
         
-        # 価格情報（ドル表示、NaN対策）
+        # 価格情報(ドル表示、NaN対策)
         price = product.get("price")
         if price and price is not None:
             try:
@@ -462,12 +461,12 @@ class SlideGenerator:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # ロゴ（左上、小さなサイズ）
+        # ロゴ(左上、小さなサイズ)
         if LOGO_PATH.exists():
             try:
                 slide.shapes.add_picture(str(LOGO_PATH), Inches(0.5), Inches(0.3), height=Inches(0.6))
             except Exception as e:
-                # ロゴの追加に失敗した場合のログ（デバッグ用）
+                # ロゴの追加に失敗した場合のログ(デバッグ用)
                 print(f"ロゴの追加に失敗: {e}")
                 pass
         
@@ -482,7 +481,7 @@ class SlideGenerator:
         title_run.font.size = Pt(32)
         title_run.font.bold = True
         
-        # コスト表示（NaN対策）
+        # コスト表示(NaN対策)
         cost_box = slide.shapes.add_textbox(Inches(2), Inches(3), Inches(9), Inches(2))
         cost_frame = cost_box.text_frame
         

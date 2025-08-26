@@ -1,17 +1,19 @@
 """
 案件CRUD API
-案件（カード）の作成、取得、更新、削除を管理
+案件(カード)の作成、取得、更新、削除を管理
 シンプルなdict形式でデータをやり取り
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List, Optional, Dict, Any
-from uuid import uuid4
 from datetime import datetime
+from typing import Any
+from uuid import uuid4
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from ...db.models import History, Item, Message
 from ...db.session import get_db
-from ...db.models import Item, History, Message
 
 router = APIRouter(prefix="/items", tags=["cases"])
 
@@ -20,9 +22,9 @@ def get_items(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
-    全案件の一覧を取得（サマリ情報付き）
+    全案件の一覧を取得(サマリ情報付き)
     カード表示用のデータを返す
     """
     items = db.query(Item).offset(skip).limit(limit).all()
@@ -60,7 +62,7 @@ def get_items(
     return result
 
 @router.get("/{item_id}")
-def get_item(item_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_item(item_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
     """指定された案件の詳細情報を取得"""
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -79,7 +81,7 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_item(data: Dict[str, Any], db: Session = Depends(get_db)) -> Dict[str, Any]:
+def create_item(data: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
     """新しい案件を作成"""
     now = datetime.utcnow().isoformat()
     
@@ -106,7 +108,7 @@ def create_item(data: Dict[str, Any], db: Session = Depends(get_db)) -> Dict[str
     }
 
 @router.put("/{item_id}")
-def update_item(item_id: str, data: Dict[str, Any], db: Session = Depends(get_db)) -> Dict[str, Any]:
+def update_item(item_id: str, data: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
     """案件情報を更新"""
     db_item = db.query(Item).filter(Item.id == item_id).first()
     if not db_item:
@@ -139,7 +141,7 @@ def update_item(item_id: str, data: Dict[str, Any], db: Session = Depends(get_db
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(item_id: str, db: Session = Depends(get_db)):
-    """案件を削除（関連データも全て削除）"""
+    """案件を削除(関連データも全て削除)"""
     db_item = db.query(Item).filter(Item.id == item_id).first()
     if not db_item:
         raise HTTPException(

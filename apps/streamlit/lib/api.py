@@ -2,10 +2,10 @@
 FastAPI バックエンドとの通信ライブラリ
 案件データの取得・操作をAPI経由で実行
 """
-import requests
-import json
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Any
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -46,25 +46,25 @@ class APIClient:
     
     # === 案件管理 API ===
     
-    def get_items(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-        """案件一覧を取得（サマリ情報付き）"""
+    def get_items(self, skip: int = 0, limit: int = 100) -> list[dict[str, Any]]:
+        """案件一覧を取得(サマリ情報付き)"""
         return self._make_request("GET", f"/items?skip={skip}&limit={limit}")
     
-    def get_item(self, item_id: str) -> Dict[str, Any]:
+    def get_item(self, item_id: str) -> dict[str, Any]:
         """指定案件の詳細を取得"""
         return self._make_request("GET", f"/items/{item_id}")
     
-    def create_item(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_item(self, data: dict[str, Any]) -> dict[str, Any]:
         """新規案件を作成"""
         return self._make_request("POST", "/items", json=data)
     
-    def update_item(self, item_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_item(self, item_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """案件情報を更新"""
         return self._make_request("PUT", f"/items/{item_id}", json=data)
     
     def delete_item(self, item_id: str):
         """案件を削除"""
-        response = self._make_request("DELETE", f"/items/{item_id}")
+        self._make_request("DELETE", f"/items/{item_id}")
         return
     
     # === メッセージ管理 API ===
@@ -74,25 +74,25 @@ class APIClient:
         item_id: str, 
         skip: int = 0, 
         limit: int = 50, 
-        search: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        search: str | None = None
+    ) -> list[dict[str, Any]]:
         """案件内のメッセージ一覧を取得"""
         params = f"?skip={skip}&limit={limit}"
         if search:
             params += f"&search={search}"
         return self._make_request("GET", f"/items/{item_id}/messages{params}")
     
-    def create_message(self, item_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_message(self, item_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """新規メッセージを作成"""
         return self._make_request("POST", f"/items/{item_id}/messages", json=data)
 
-    # === フロント互換メソッド（チャット用） ===
+    # === フロント互換メソッド(チャット用) ===
     def get_item_messages(self, item_id: int, skip: int = 0, limit: int = 100):
-        """案件(item_id)のチャット履歴を取得（フロント互換）"""
+        """案件(item_id)のチャット履歴を取得(フロント互換)"""
         return self.get_messages(item_id=item_id, skip=skip, limit=limit)
 
     def post_item_message(self, item_id: int, role: str, content: str):
-        """案件(item_id)のチャットメッセージを保存（フロント互換）"""
+        """案件(item_id)のチャットメッセージを保存(フロント互換)"""
         return self.create_message(item_id=item_id, data={"role": role, "content": content})
     
     # === 企業分析 API ===
@@ -101,9 +101,9 @@ class APIClient:
         self, 
         item_id: str, 
         question: str, 
-        company_name: Optional[str] = None,
+        company_name: str | None = None,
         top_k: int = 5
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """企業分析を実行"""
         data = {
             "item_id": item_id,
@@ -115,7 +115,7 @@ class APIClient:
         
         return self._make_request("POST", "/analysis/query", json=data)
     
-    def load_history(self, item_id: str, company_name: str) -> Dict[str, Any]:
+    def load_history(self, item_id: str, company_name: str) -> dict[str, Any]:
         """取引履歴をロード"""
         data = {
             "item_id": item_id,
@@ -125,7 +125,7 @@ class APIClient:
     
     # === ヘルスチェック ===
     
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """APIサーバーのヘルスチェック"""
         return self._make_request("GET", "/health")
 

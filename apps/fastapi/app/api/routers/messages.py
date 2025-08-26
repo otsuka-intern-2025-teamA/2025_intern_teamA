@@ -2,15 +2,17 @@
 メッセージ管理API
 案件内の会話ログの管理とFTS検索機能
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import List, Dict, Any, Optional
-from uuid import uuid4
 from datetime import datetime
+from typing import Any
+from uuid import uuid4
 
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from ...db.models import Item, Message
 from ...db.session import get_db
-from ...db.models import Message, Item
 
 router = APIRouter(prefix="/items/{item_id}/messages", tags=["messages"])
 
@@ -19,9 +21,9 @@ def get_messages(
     item_id: str,
     skip: int = 0,
     limit: int = 50,
-    search: Optional[str] = Query(None, description="FTS検索クエリ"),
+    search: str | None = Query(None, description="FTS検索クエリ"),
     db: Session = Depends(get_db)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     指定案件のメッセージ一覧を取得
     searchパラメータが指定された場合はFTS検索を実行
@@ -66,7 +68,7 @@ def get_messages(
                     "created_at": row.created_at
                 })
             
-        except Exception as e:
+        except Exception:
             # FTS検索に失敗した場合は通常検索にフォールバック
             messages_query = db.query(Message).filter(
                 Message.item_id == item_id,
@@ -105,9 +107,9 @@ def get_messages(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_message(
     item_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """新しいメッセージを作成"""
     # 案件の存在確認
     item = db.query(Item).filter(Item.id == item_id).first()
@@ -152,7 +154,7 @@ def get_message(
     item_id: str,
     message_id: str,
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """指定されたメッセージの詳細を取得"""
     message = db.query(Message).filter(
         Message.id == message_id,

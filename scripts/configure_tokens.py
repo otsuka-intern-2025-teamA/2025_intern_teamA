@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 トークン設定のヘルパースクリプト
 """
 
 import os
 from pathlib import Path
+
 
 def configure_tokens():
     """トークン設定の確認と提案"""
@@ -42,7 +42,7 @@ def configure_tokens():
         print(f"\n.envファイルが存在します: {env_path}")
         
         # MAX_COMPLETION_TOKENSの行を確認
-        with open(env_path, 'r', encoding='utf-8') as f:
+        with open(env_path, encoding='utf-8') as f:
             lines = f.readlines()
             max_tokens_line = None
             for i, line in enumerate(lines):

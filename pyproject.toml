@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["apps", "backend", "libs", "scripts"]
+extend-exclude = [".venv", "venv", "data", "assets", "alembic", "migrations", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N", "B", "A", "C4", "T20", "RUF"]
+ignore = ["E203", "E266"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/streamlit/**/*.py" = ["T201", "RUF001", "RUF003"]
+"tests/**/*.py" = ["S101", "T201", "E501", "RUF001", "RUF003"]

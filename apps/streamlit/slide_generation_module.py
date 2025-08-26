@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import streamlit as st
 from openai import AzureOpenAI, OpenAI
+
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
@@ -19,6 +20,8 @@ PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
 # --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
+from lib.api import api_available, get_api_client
+from lib.slide_generator import SlideGenerator
 from lib.styles import (
     apply_company_analysis_page_styles,
     apply_main_styles,
@@ -27,9 +30,6 @@ from lib.styles import (
     render_sidebar_logo_card,
     render_slide_generation_title,
 )
-
-from lib.api import api_available, get_api_client
-from lib.slide_generator import SlideGenerator
 
 
 # =========================

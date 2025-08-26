@@ -16,6 +16,80 @@ def get_client():
         )
     return OpenAI(api_key=s.openai_api_key)
 
+# 自然言語クエリを生成
+def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> List[str]:
+
+    s = get_settings()
+    client = get_client()
+
+    if s.use_azure:
+        model_name = "gpt-5-mini"
+        if not model_name:
+            raise RuntimeError(
+                "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。"
+            )
+    else:
+        model_name = s.default_model
+
+    sys = (
+        "あなたはWebリサーチに最適な検索クエリを作る専門家です。"
+        "与えられた会社名と質問から、重複しない 3〜5 個の短い検索クエリを作ってください。"
+        "Tavily等の一般Web検索を想定し、次を心がけてください："
+        " - 名詞中心で簡潔（10語以内）、余計な助詞は省略"
+        " - 日本語と英語の混在も可（固有名詞＋英語の一般語彙）"
+        " - 年/期間など具体化（例：2024, 直近1年, market share, product launch）"
+        " - 会社名は必ず1つ以上のクエリに含める"
+        " - 同義語や関連語（issues, risks, challenges, roadmap, partnership, compliance など）をばらして出す"
+        " - 特定の媒体に偏らない（site: 指定は基本避ける）"
+        "出力は JSON のみ、キーは queries（文字列配列）だけ。"
+    )
+    usr = (
+        f"会社名: {company}\n"
+        f"ユーザー入力/意図: {user_input}\n"
+        f"最大クエリ数: {max_queries}\n"
+        "フォーマット: {\"queries\": [\"...\"]}"
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "system", "content": sys},
+                      {"role": "user", "content": usr}],
+            response_format={"type": "json_object"},
+        )
+        content = resp.choices[0].message.content or "{}"
+        data = json.loads(content)
+        queries = data.get("queries", [])
+    except Exception:
+        # 失敗時フォールバック：最低限のクエリ
+        queries = []
+
+    # 後処理：空・重複を除去、上限数で切る
+    cleaned = []
+    seen = set()
+    for q in queries:
+        q = (q or "").strip()
+        if not q:
+            continue
+        if q.lower() in seen:
+            continue
+        seen.add(q.lower())
+        cleaned.append(q)
+        if len(cleaned) >= max_queries:
+            break
+
+    # それでも空なら素朴に作る
+    if not cleaned:
+        base = (user_input or "").strip()
+        if base:
+            cleaned = [f"{company} {base}", f"{company} overview", f"{company} recent news"]
+        else:
+            cleaned = [f"{company} overview", f"{company} recent news", f"{company} competitors"]
+
+    print("=== Cleaned queries (final) ===")
+    print(cleaned)
+    return cleaned    
+
 
 def company_briefing_with_web_search(
     company: str, hits: List[SearchHit], context: str = ""

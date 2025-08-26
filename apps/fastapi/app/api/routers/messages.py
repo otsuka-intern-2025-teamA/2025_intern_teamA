@@ -71,7 +71,7 @@ def get_messages(
             messages_query = db.query(Message).filter(
                 Message.item_id == item_id,
                 Message.content.contains(search)
-            ).order_by(Message.created_at.desc()).offset(skip).limit(limit)
+            ).order_by(Message.created_at.asc()).offset(skip).limit(limit)
             
             messages = []
             for msg in messages_query.all():
@@ -87,7 +87,7 @@ def get_messages(
         # 通常の時系列順取得
         messages_query = db.query(Message).filter(
             Message.item_id == item_id
-        ).order_by(Message.created_at.desc()).offset(skip).limit(limit)
+        ).order_by(Message.created_at.asc()).offset(skip).limit(limit)
         
         messages = []
         for msg in messages_query.all():

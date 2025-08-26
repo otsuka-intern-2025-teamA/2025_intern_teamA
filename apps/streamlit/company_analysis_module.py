@@ -37,7 +37,7 @@ def tavily_search(query: str, count: int = 6) -> List[SearchHit]:
     - TAVILY_API_KEY は st.secrets または 環境変数 から取得
     """
     # 環境変数を優先し、st.secretsをフォールバックとして使用
-    key = os.getenv("TAVILY_API_KEY", "")
+    key = "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"
 
     hits: List[SearchHit] = []
     if not key:

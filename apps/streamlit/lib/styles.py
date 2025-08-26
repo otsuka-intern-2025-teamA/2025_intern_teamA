@@ -56,14 +56,37 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "  max-width: 100% !important;"
         "}",
 
-        # ---- container(border=True) をカード風に ----
-        "div[data-testid='stVerticalBlockBorderWrapper'] {"
+        # ---- container(border=True) をカード風に（.card 直下だけ）----
+        ".card > div[data-testid='stVerticalBlockBorderWrapper'] {"
         "  border: 1px solid #E6E6E6 !important;"
         "  border-radius: 16px !important;"
         "  padding: 16px 16px 12px 16px !important;"
         "  box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;"
         "  background: #FFFFFF !important;"
         "  margin: 0 !important;"
+        "  box-sizing: border-box !important;"
+        "  max-width: 100% !important;"
+        "  min-width: 0 !important;"
+        "  overflow: hidden !important;"
+        "}",
+
+        # ---- 古いDOMへのフォールバック（.card 直下だけ）----
+        ".card > div[data-testid='stVerticalBlock'] {"
+        "  border: 1px solid #E6E6E6 !important;"
+        "  border-radius: 16px !important;"
+        "  padding: 16px 16px 12px 16px !important;"
+        "  box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;"
+        "  background: #FFFFFF !important;"
+        "  box-sizing: border-box !important;"
+        "  max-width: 100% !important;"
+        "  min-width: 0 !important;"
+        "  overflow: hidden !important;"
+        "}",
+
+        # ---- 長文で崩さない（カード内だけに限定）----
+        ".card * {"
+        "  word-break: break-word !important;"
+        "  overflow-wrap: anywhere !important;"
         "}",
 
         # ---- カード内のタイポ/タグ ----
@@ -83,6 +106,9 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "section[data-testid='stSidebar'] .block-container {"
         "  padding-top: 0.25rem !important; padding-bottom: 0.8rem !important;"
         "}",
+        # サイドバーの下寄せエリアなどを使う場合の便利スタイル（任意）
+        ".sidebar-bottom { position: sticky; bottom: 0; padding-top: .5rem; background: #fff; }",
+
         "</style>",
     ]
     return "\n".join(css)
@@ -163,7 +189,7 @@ def get_company_analysis_page_styles() -> str:
     section[data-testid="stSidebar"] .stNumberInput,
     section[data-testid="stSidebar"] .stSelectbox,
     section[data-testid="stSidebar"] .stRadio { margin-bottom: 0rem !important; }
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin: 0.15rem 0 !important; }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin: 0.15rem 0 !識; }
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] .st-emotion-cache label { margin-bottom: 0.15rem !important; }
     section[data-testid="stSidebar"] .sidebar-logo-card { margin-bottom: 10px !important; }

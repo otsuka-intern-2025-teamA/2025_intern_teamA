@@ -40,7 +40,7 @@ def get_settings() -> Settings:
         ),
         azure_chat_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
         azure_embed_deployment=os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT"),
-        tavily_api_key=os.getenv("TAVILY_API_KEY"),
+        tavily_api_key="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",
         debug=os.getenv("DEBUG", "0") == "1",
     )
     if settings.use_azure and not settings.azure_api_key:

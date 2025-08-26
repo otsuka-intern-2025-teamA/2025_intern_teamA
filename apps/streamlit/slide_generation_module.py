@@ -1,18 +1,17 @@
 # slide_generation_module.py
 # ---------------------------------------------------------
-# スライド作成ページ（サイドバー追加版）
+# スライド作成ページ（サイドバー追加版 × カードUI）
 # - サイドバー：ロゴ／案件一覧へ戻る（左下固定）／企業名／提案件数／履歴参照件数／商材データセット選択／クリア
 # - 本文：上段ヘッダ（左＝見出し／右＝候補取得ボタン）、
-#          左＝商談詳細＆参考資料アップ、右＝LLM提案（text_areaでスクロール可能）、
+#          左＝商談詳細＆参考資料アップ、右＝候補カード（画像・理由・80字概要）、
 #          下段＝生成とドラフトJSON
-# - バックエンドAPI search_products が無い/未対応でも、CSV＋チャット履歴の簡易スコアでフォールバック
-# - ★ 右ペインは text_area（読み取り専用）で確実に「枠内スクロール」
+# - 生成ロジック：CSV→粗選定→LLMでTop-K選抜→LLMで80字要約（失敗時は短縮）
 # ---------------------------------------------------------
 
 from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-import re
+import os, re, json
 
 import streamlit as st
 import pandas as pd
@@ -27,17 +26,18 @@ from lib.styles import (
     render_slide_generation_title,        # タイトル描画（h1.slide-generation-title）
 )
 
-# 既存の企業分析用LLM関数
-from lib.company_analysis.llm import company_briefing_without_web_search
-
-# APIクライアント
+# APIクライアント（企業分析のチャット履歴取得に使用）
 from lib.api import get_api_client, api_available, APIError
+
+# LLM クライアント（Azure / OpenAI どちらでもOK）
+from openai import OpenAI, AzureOpenAI
 
 # 画像/データパス
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
 ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
+PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
 
 # =========================
@@ -49,13 +49,67 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("api_error", None)
     ss.setdefault("slide_meeting_notes", "")
     ss.setdefault("uploaded_files_store", [])     # file_uploaderの保存用
-    ss.setdefault("product_candidates", [])       # [{id, name, category, price, score, reason}]
+    ss.setdefault("product_candidates", [])       # 表示用カードデータの配列
     ss.setdefault("slide_outline", None)
     ss.setdefault("slide_overview", "")
     ss.setdefault("slide_history_reference_count", 3)  # 直近N往復参照（デフォ3）
     ss.setdefault("slide_top_k", 10)                   # 提案件数（デフォ10）
     ss.setdefault("slide_products_dataset", "Auto")    # 商材データセット選択
-    ss.setdefault("llm_proposal_text", "")             # LLMの出力
+
+
+# =========================
+# LLM クライアント準備（Azure / OpenAI 自動判定）
+# =========================
+def _get_chat_client():
+    """
+    - Azure: USE_AZURE=true or AZURE_OPENAI_ENDPOINT があれば使用
+      必須: AZURE_OPENAI_API_KEY, AZURE_OPENAI_CHAT_DEPLOYMENT
+      任意: API_VERSION (default 2024-06-01)
+    - OpenAI: OPENAI_API_KEY, DEFAULT_MODEL (任意・既定 gpt-4o-mini)
+    """
+    use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
+    if use_azure:
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        api_key = os.getenv("AZURE_OPENAI_API_KEY")
+        api_version = os.getenv("API_VERSION", "2024-06-01")
+        deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+        if not (endpoint and api_key and deployment):
+            raise RuntimeError("Azure設定不足: AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY / AZURE_OPENAI_CHAT_DEPLOYMENT")
+        client = AzureOpenAI(azure_endpoint=endpoint, api_key=api_key, api_version=api_version)
+        model = deployment
+    else:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY が未設定です。")
+        client = OpenAI(api_key=api_key)
+        model = os.getenv("DEFAULT_MODEL", "gpt-4o-mini")
+    return client, model
+
+
+# =========================
+# 便利関数（価格など）
+# =========================
+def _to_float(val):
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        if isinstance(val, float) and pd.isna(val):
+            return None
+        return float(val)
+    if isinstance(val, str):
+        s = val.strip().replace("¥", "").replace(",", "")
+        if not s:
+            return None
+        try:
+            return float(s)
+        except Exception:
+            return None
+    return None
+
+
+def _fmt_price(val) -> str:
+    v = _to_float(val)
+    return f"¥{int(round(v)):,}" if v is not None else "—"
 
 
 # =========================
@@ -91,20 +145,11 @@ def _gather_messages_context(item_id: Optional[str], history_n: int) -> str:
         return ""
 
 
-def _list_uploaded_names(files: List[Any]) -> List[str]:
-    names = []
-    for f in files or []:
-        try:
-            names.append(getattr(f, "name", "uploaded_file"))
-        except Exception:
-            pass
-    return names
-
-
 def _load_products_from_csv(dataset: str) -> pd.DataFrame:
     """
     商材CSVをロード（存在カラムが無ければ作成）
     期待カラム: id(無ければ生成), name, category, price, description, tags
+             ＋ image_url/image/thumbnail（任意）, source_csv（追加）
     """
     frames: List[pd.DataFrame] = []
     if not PRODUCTS_DIR.exists():
@@ -117,9 +162,14 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
                 for col in ["name", "category", "price", "description", "tags"]:
                     if col not in df.columns:
                         df[col] = None
+                for col in ["image_url", "image", "thumbnail"]:
+                    if col not in df.columns:
+                        df[col] = None
                 if "id" not in df.columns:
                     df["id"] = [f"{csvp.stem}-{i+1}" for i in range(len(df))]
-                frames.append(df[["id", "name", "category", "price", "description", "tags"]])
+                df["source_csv"] = csvp.stem
+                frames.append(df[["id", "name", "category", "price", "description", "tags",
+                                  "image_url", "image", "thumbnail", "source_csv"]])
             except Exception:
                 continue
 
@@ -152,26 +202,14 @@ def _fallback_rank_products(
     notes: str,
     messages_ctx: str,
     products_df: pd.DataFrame,
-    top_k: int
+    top_pool: int
 ) -> List[Dict[str, Any]]:
-    """商談メモ＋履歴の語句一致で素朴にスコアリング"""
+    """商談メモ＋履歴の語句一致で素朴にスコアリング → 上位 top_pool を返す"""
     if products_df.empty:
         return []
 
     query_text = (notes or "") + "\n" + (messages_ctx or "")
     q_tokens = _simple_tokenize(query_text)
-    if not q_tokens:
-        out = []
-        for _, row in products_df.head(top_k).iterrows():
-            out.append({
-                "id": row.get("id"),
-                "name": row.get("name"),
-                "category": row.get("category"),
-                "price": row.get("price"),
-                "score": 0.0,
-                "reason": "キーワード不足のため先頭候補（暫定）",
-            })
-        return out
 
     def _row_text(row) -> str:
         return " ".join([
@@ -194,91 +232,201 @@ def _fallback_rank_products(
             "name": row.get("name"),
             "category": row.get("category"),
             "price": row.get("price"),
+            "description": row.get("description"),
+            "tags": row.get("tags"),
+            "image_url": row.get("image_url"),
+            "image": row.get("image"),
+            "thumbnail": row.get("thumbnail"),
+            "source_csv": row.get("source_csv"),
             "score": round(float(score), 2),
             "reason": reason,
         }))
 
     scored.sort(key=lambda x: (x[0], str(x[1]["name"]).lower()), reverse=True)
-    return [d for _, d in scored[:top_k]]
+    return [d for _, d in scored[:top_pool]]
 
 
 # =========================
-# LLM プロンプト生成＆実行
+# LLM で Top-K 選抜＋理由生成 / 80字要約
 # =========================
-def _build_llm_prompt_for_proposals(
-    company: str,
-    meeting_notes: str,
-    messages_ctx: str,
-    uploads_names: List[str],
-    candidates: List[Dict[str, Any]],
-    want: int,
-) -> str:
-    cand_lines = []
-    for c in candidates:
-        cand_lines.append(
-            f"- name: {c.get('name')} | category: {c.get('category')} | price: {c.get('price')} | hint: {c.get('reason')}"
-        )
-    uploads_line = ", ".join(uploads_names) if uploads_names else "（なし）"
-    ctx_block = messages_ctx.strip() or "（直近のチャット履歴なし）"
-
-    prompt = f"""あなたはB2B提案のプリセールスコンサルタントです。
-以下の情報を使い、**{company}** 向けの提案商材を **最大 {want} 件**、日本語Markdownで出力してください。
-
-# 依頼
-- 「提案の要旨（2〜3行）」を最初に。
-- その後に 「推奨商材（max {want} 件）」を、**箇条書き**で以下の形式で詳述:
-  - **商材名**（カテゴリ、概算価格） — この案件での適合理由（業務インパクト/導入容易性/前提条件など）
-- 最後に「次のアクション（打ち手案）」として、2〜3項目。
-
-# 入力（商談メモ抜粋）
-{meeting_notes.strip() or "（未入力）"}
-
-# 参考資料（ファイル名）
-{uploads_line}
-
-# 直近チャット履歴（企業分析）
-{ctx_block}
-
-# 候補カタログ（社内商材）
-{chr(10).join(cand_lines)}
-
-# 注意
-- 候補カタログの中から選び、必要があれば複数を組み合わせてもよい。
-- カタログに無い要素技術や一般論に依存しすぎないこと。
-- 誇張を避け、根拠ベースで具体的に。
-- 出力は**日本語Markdown**のみ。前置きやメタコメントは禁止。
-"""
-    return prompt
-
-
-def _run_llm_proposal(
-    company: str,
-    meeting_notes: str,
-    item_id: Optional[str],
-    history_n: int,
-    candidates: List[Dict[str, Any]],
-    uploads: List[Any],
-    want: int,
-) -> str:
-    messages_ctx = _gather_messages_context(item_id, history_n)
-    uploads_names = _list_uploaded_names(uploads)
-    prompt = _build_llm_prompt_for_proposals(
-        company=company,
-        meeting_notes=meeting_notes,
-        messages_ctx=messages_ctx,
-        uploads_names=uploads_names,
-        candidates=candidates,
-        want=want,
-    )
+def _extract_json(s: str) -> Dict[str, Any]:
+    s = (s or "").strip()
+    if not s:
+        return {}
+    if s.lstrip().startswith("{"):
+        try:
+            return json.loads(s)
+        except Exception:
+            pass
     try:
-        result = company_briefing_without_web_search(company, prompt, "")
-        return str(result)
-    except Exception as e:
-        return f"LLM実行でエラーが発生しました: {e}"
+        start = s.find("{")
+        end = s.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(s[start:end + 1])
+    except Exception:
+        return {}
+    return {}
+
+
+def _llm_pick_products(pool: List[Dict[str, Any]], top_k: int, company: str, notes: str, ctx: str) -> List[Dict[str, Any]]:
+    """カタログ（pool）から LLM で Top-K を選抜し、短い理由と信頼度を付与"""
+    if not pool:
+        return []
+    client, model = _get_chat_client()
+
+    lines = []
+    for p in pool:
+        desc = (p.get("description") or "")[:200]
+        tags = (p.get("tags") or "")[:120]
+        cat = p.get("source_csv") or p.get("category") or ""
+        price = p.get("price")
+        price_s = f"¥{int(_to_float(price)):,}" if _to_float(price) is not None else "—"
+        lines.append(f"- id:{p['id']} | name:{p.get('name','')} | category:{cat} | price:{price_s} | tags:{tags} | desc:{desc}")
+    catalog = "\n".join(lines)
+
+    user = f"""あなたはB2Bプリセールスの提案プランナーです。
+以下の会社情報と商談詳細、会話文脈に基づいて、候補カタログから Top-{top_k} の製品 id を選び、日本語で短い理由（120字以内）と信頼度(0-1)を付けてください。
+必ずカタログに存在する id のみ。出力は JSON のみ:
+
+{{
+  "recommendations":[
+    {{"id":"<id>","reason":"<120字以内>","confidence":0.0}}
+  ]
+}}
+
+# 会社: {company}
+# 商談詳細:
+{notes or "(なし)"}
+
+# 会話文脈:
+{ctx or "(なし)"}
+
+# 候補カタログ:
+{catalog}
+"""
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
+                {"role": "user", "content": user},
+            ],
+            response_format={"type": "json_object"},
+        )
+        txt = resp.choices[0].message.content or ""
+    except Exception:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
+                {"role": "user", "content": user},
+            ],
+        )
+        txt = resp.choices[0].message.content or ""
+
+    data = _extract_json(txt)
+    recs = data.get("recommendations", []) if isinstance(data, dict) else []
+    if not recs:
+        return []
+
+    pool_map = {str(p["id"]): p for p in pool}
+    out: List[Dict[str, Any]] = []
+    for r in recs:
+        pid = str(r.get("id", "")).strip()
+        if not pid or pid not in pool_map:
+            continue
+        src = pool_map[pid]
+        out.append({
+            **src,
+            "reason": (r.get("reason") or "").strip() or src.get("reason"),
+            "score": float(r.get("confidence", 0.0)),
+        })
+        if len(out) >= top_k:
+            break
+    return out
+
+
+def _summarize_overviews_llm(cands: List[Dict[str, Any]]) -> None:
+    """各製品の概要を 80字以内で LLM 要約（失敗時は説明を短縮）"""
+    items = []
+    has_any = False
+    for c in cands:
+        mat = c.get("description") or c.get("tags") or c.get("name") or ""
+        if mat:
+            has_any = True
+        items.append({"id": str(c.get("id") or ""), "name": c.get("name") or "", "material": str(mat)[:600]})
+
+    if not has_any:
+        for c in cands:
+            c["overview"] = "—"
+        return
+
+    try:
+        client, model = _get_chat_client()
+        payload = "\n".join([f"- id:{it['id']} / 名称:{it['name']}\n  内容:{it['material']}" for it in items])
+        prompt = f"""各製品の「製品概要」を日本語で1〜2文、最大80字で要約してください。事実の追加・誇張は禁止。
+出力は JSON のみ:
+{{"summaries":[{{"id":"<id>","overview":"<80字以内>"}}]}}
+入力:
+{payload}"""
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+            txt = resp.choices[0].message.content or ""
+        except Exception:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            txt = resp.choices[0].message.content or ""
+
+        data = _extract_json(txt)
+        mp = {}
+        if isinstance(data, dict):
+            for s in data.get("summaries", []) or []:
+                pid = str(s.get("id") or "")
+                ov = (s.get("overview") or "").strip()
+                if pid and ov:
+                    mp[pid] = ov
+
+        for c in cands:
+            pid = str(c.get("id") or "")
+            base = c.get("description") or c.get("tags") or ""
+            fallback = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+            c["overview"] = mp.get(pid, fallback)
+    except Exception:
+        for c in cands:
+            base = c.get("description") or c.get("tags") or ""
+            c["overview"] = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+
+
+def _resolve_product_image_src(rec: Dict[str, Any]) -> Optional[str]:
+    for key in ("image_url", "image", "thumbnail"):
+        v = rec.get(key)
+        if not v:
+            continue
+        s = str(v).strip()
+        if s.startswith("http://") or s.startswith("https://"):
+            return s
+        p = (PROJECT_ROOT / s).resolve()
+        if p.exists():
+            return str(p)
+    if PLACEHOLDER_IMG.exists():
+        return str(PLACEHOLDER_IMG)
+    return None
 
 
 # =========================
-# 候補検索（API or フォールバック）
+# 候補検索（CSV→粗選定→LLM選抜→LLM要約）
 # =========================
 def _search_product_candidates(
     company: str,
@@ -287,35 +435,30 @@ def _search_product_candidates(
     top_k: int,
     history_n: int,
     dataset: str,
-    uploaded_files: List[Any],
+    uploaded_files: List[Any],   # いまは未使用（将来:埋め込み/要約に利用可）
 ) -> List[Dict[str, Any]]:
-    if api_available():
-        try:
-            api = get_api_client()
-            if hasattr(api, "search_products"):
-                try:
-                    return api.search_products(
-                        company=company,
-                        query=meeting_notes,
-                        top_k=top_k,
-                        context=_gather_messages_context(item_id, history_n),
-                        dataset=dataset,
-                        uploads=", ".join(_list_uploaded_names(uploaded_files)),
-                    ) or []
-                except TypeError:
-                    return api.search_products(company=company, query=meeting_notes, top_k=top_k) or []
-        except APIError as e:
-            st.error(f"❌ 商品候補取得エラー: {e}")
-        except Exception:
-            pass
+    # 企業分析の文脈
+    ctx = _gather_messages_context(item_id, history_n)
 
-    products_df = _load_products_from_csv(dataset)
-    return _fallback_rank_products(
-        notes=meeting_notes,
-        messages_ctx=_gather_messages_context(item_id, history_n),
-        products_df=products_df,
-        top_k=top_k,
-    )
+    # CSV 読み込み
+    df = _load_products_from_csv(dataset)
+    if df.empty:
+        return []
+
+    # 粗選定 → 上位プール（Top-40 目安）
+    pool = _fallback_rank_products(meeting_notes, ctx, df, top_pool=max(40, top_k * 3))
+
+    # LLM で Top-K 選抜＋理由付与（失敗時は粗選定上位を採用）
+    try:
+        selected = _llm_pick_products(pool, top_k, company, meeting_notes, ctx)
+        if not selected:
+            selected = pool[:top_k]
+    except Exception:
+        selected = pool[:top_k]
+
+    # 各製品の 80字概要を LLM 要約（失敗時は短縮）
+    _summarize_overviews_llm(selected)
+    return selected
 
 
 # =========================
@@ -336,8 +479,14 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
         ],
         "meeting_notes_digest": meeting_notes[:300] + ("..." if len(meeting_notes) > 300 else ""),
         "products": [
-            {"id": p.get("id"), "name": p.get("name"), "category": p.get("category"),
-             "price": p.get("price"), "reason": p.get("reason")}
+            {
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "category": p.get("source_csv") or p.get("category"),
+                "price": p.get("price"),
+                "reason": p.get("reason"),
+                "overview": p.get("overview"),
+            }
             for p in selected_products
         ],
     }
@@ -347,7 +496,7 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
 # メイン描画
 # =========================
 def render_slide_generation_page():
-    """スライド作成ページをレンダリング（右ペインは text_area で枠内スクロール）"""
+    """スライド作成ページ（右ペイン＝候補カード表示）"""
     _ensure_session_defaults()
 
     try:
@@ -407,7 +556,7 @@ def render_slide_generation_page():
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
 
-        sidebar_clear = st.button("クリア", use_container_width=True, help="候補とLLM出力を画面内でクリア")
+        sidebar_clear = st.button("クリア", use_container_width=True, help="候補を画面内でクリア")
 
         st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
         if st.button("← 案件一覧に戻る", use_container_width=True):
@@ -455,11 +604,11 @@ def render_slide_generation_page():
         elif st.session_state.uploaded_files_store:
             st.caption(f"前回アップロード済み: {len(st.session_state.uploaded_files_store)} ファイル")
 
-    # ---- 右：LLM提案（text_areaで枠内スクロール）
+    # ---- 右：候補カード
     with right:
-        st.markdown("**● LLMによる提案**")
+        st.markdown("**● 候補（カード表示）**")
 
-        # 「候補を取得」クリックで：候補検索 → LLM実行 → 出力保存
+        # 「候補を取得」クリックで：候補検索 → 出力保存
         if search_btn:
             if not company_internal.strip():
                 st.error("企業が選択されていません。案件一覧から企業を選んでください。")
@@ -476,31 +625,41 @@ def render_slide_generation_page():
                     )
                 st.session_state.product_candidates = candidates
 
-                with st.spinner("LLMで提案文を作成中…"):
-                    st.session_state.llm_proposal_text = _run_llm_proposal(
-                        company=company_internal,
-                        meeting_notes=st.session_state.slide_meeting_notes or "",
-                        item_id=item_id,
-                        history_n=int(st.session_state.slide_history_reference_count),
-                        candidates=candidates,
-                        uploads=st.session_state.uploaded_files_store,
-                        want=int(st.session_state.slide_top_k),
-                    )
-
         if sidebar_clear:
             st.session_state.product_candidates = []
-            st.session_state.llm_proposal_text = ""
-            st.info("候補とLLM出力をクリアしました。")
+            st.info("候補をクリアしました。")
 
-        # ★ ここが確実に枠内に表示・スクロール
-        st.text_area(
-            label="LLM提案（表示専用）",
-            value=st.session_state.llm_proposal_text or "候補を取得すると、ここにLLMの提案結果（要旨・推奨商材・次アクション）が表示されます。",
-            height=370,                       # 左側の高さとバランスを合わせる
-            key="llm_proposal_viewer",
-            label_visibility="collapsed",
-            disabled=True,                    # 読み取り専用
-        )
+        # カード描画
+        recs = st.session_state.product_candidates or []
+        if not recs:
+            st.info("候補がありません。『候補を取得』を押してください。")
+        else:
+            for r in recs:
+                pid = str(r.get("id") or "")
+                name = str(r.get("name") or "")
+                cat_src = r.get("source_csv") or r.get("category") or "—"
+                price_s = _fmt_price(r.get("price"))
+                reason = r.get("reason") or "—"
+                overview = r.get("overview") or "—"
+
+                with st.container(border=True):
+                    c1, c2 = st.columns([1, 3], gap="medium")
+                    with c1:
+                        img_src = _resolve_product_image_src(r)
+                        if img_src and (img_src.startswith("http") or os.path.exists(img_src)):
+                            st.image(img_src, use_container_width=True)
+                        else:
+                            st.markdown(
+                                "<div style='width:100%;height:120px;border:1px solid #eee;border-radius:10px;"
+                                "background:#f6f7f9;display:flex;align-items:center;justify-content:center;"
+                                "color:#999;font-size:12px;'>画像なし</div>",
+                                unsafe_allow_html=True
+                            )
+                    with c2:
+                        st.markdown(f"**{name}**")
+                        st.caption(f"カテゴリ: {cat_src} ／ 価格: {price_s} ／ ID: `{pid}`")
+                        st.markdown(f"**提案理由**：{reason}")
+                        st.markdown(f"**製品概要**：{overview}")
 
     st.divider()
 
@@ -521,7 +680,7 @@ def render_slide_generation_page():
         if not company_internal.strip():
             st.error("企業が選択されていません。")
         else:
-            selected = list(st.session_state.product_candidates or [])
+            selected = list(st.session_state.product_candidates or [])  # 全候補を採用
             outline = _make_outline_preview(
                 company_internal,
                 st.session_state.slide_meeting_notes or "",

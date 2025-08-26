@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import os, re, json
+from datetime import datetime
 
 import streamlit as st
 import pandas as pd
@@ -28,6 +29,9 @@ from lib.styles import (
 
 # APIクライアント（企業分析のチャット履歴取得に使用）
 from lib.api import get_api_client, api_available, APIError
+
+# スライド生成モジュール
+from lib.slide_generator import SlideGenerator
 
 # LLM クライアント（Azure / OpenAI どちらでもOK）
 from openai import OpenAI, AzureOpenAI
@@ -55,6 +59,9 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("slide_history_reference_count", 3)  # 直近N往復参照（デフォ3）
     ss.setdefault("slide_top_k", 10)                   # 提案件数（デフォ10）
     ss.setdefault("slide_products_dataset", "Auto")    # 商材データセット選択
+    ss.setdefault("slide_use_tavily_api", True)        # TAVILY API使用フラグ
+    ss.setdefault("slide_use_gpt_api", True)           # GPT API使用フラグ
+    ss.setdefault("slide_tavily_uses", 2)              # 製品あたりのTAVILY API呼び出し回数
 
 
 # =========================
@@ -556,6 +563,31 @@ def render_slide_generation_page():
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
 
+        st.markdown("---")
+        st.markdown("### AI設定")
+        
+        st.session_state.slide_use_gpt_api = st.checkbox(
+            "GPT API使用",
+            value=st.session_state.slide_use_gpt_api,
+            key="slide_use_gpt_api_checkbox",
+            help="Azure OpenAI GPT-5-miniを使用して企業課題分析と製品情報要約を行います"
+        )
+        
+        st.session_state.slide_use_tavily_api = st.checkbox(
+            "TAVILY API使用",
+            value=st.session_state.slide_use_tavily_api,
+            key="slide_use_tavily_api_checkbox",
+            help="TAVILY APIを使用して製品情報のウェブ検索を行います"
+        )
+        
+        if st.session_state.slide_use_tavily_api:
+            st.session_state.slide_tavily_uses = st.number_input(
+                "TAVILY API呼び出し回数（製品あたり）",
+                min_value=1, max_value=5, value=st.session_state.slide_tavily_uses, step=1,
+                key="slide_tavily_uses_input",
+                help="各製品に対してTAVILY APIを何回呼び出すかを指定します"
+            )
+
         sidebar_clear = st.button("クリア", use_container_width=True, help="候補を画面内でクリア")
 
         st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
@@ -679,8 +711,12 @@ def render_slide_generation_page():
     if gen_btn:
         if not company_internal.strip():
             st.error("企業が選択されていません。")
+        elif not st.session_state.product_candidates:
+            st.error("製品候補がありません。先に「候補を取得」を押してください。")
         else:
             selected = list(st.session_state.product_candidates or [])  # 全候補を採用
+            
+            # 下書きの作成
             outline = _make_outline_preview(
                 company_internal,
                 st.session_state.slide_meeting_notes or "",
@@ -688,7 +724,39 @@ def render_slide_generation_page():
                 st.session_state.slide_overview or "",
             )
             st.session_state.slide_outline = outline
-            st.success("下書きを作成しました。")
+            
+            # プレゼンテーション生成
+            with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
+                try:
+                    generator = SlideGenerator()
+                    pptx_data = generator.create_presentation(
+                        company_name=company_internal,
+                        meeting_notes=st.session_state.slide_meeting_notes or "",
+                        products=selected,
+                        use_tavily=st.session_state.slide_use_tavily_api,
+                        use_gpt=st.session_state.slide_use_gpt_api,
+                        tavily_uses=st.session_state.slide_tavily_uses
+                    )
+                    
+                    # ダウンロードボタンの表示
+                    st.success("プレゼンテーションが生成されました！")
+                    
+                    # ファイル名の生成
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{company_internal}_提案書_{timestamp}.pptx"
+                    
+                    st.download_button(
+                        label="📥 プレゼンテーションをダウンロード",
+                        data=pptx_data,
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
+                    st.info("下書きのみ作成されました。")
 
     if st.session_state.slide_outline:
         with st.expander("下書きプレビュー（JSON）", expanded=True):

@@ -5,8 +5,12 @@
 .venv
 venv
 
+
+
 # 特定ディレクトリのpycache
 **/__pycache__/**
 .mypy_cache/
 
 temp/
+data/csv/products/DatasetA
+data/csv/products/DatasetB

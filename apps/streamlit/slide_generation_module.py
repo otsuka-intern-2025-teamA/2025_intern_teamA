@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import re
+from datetime import datetime
 
 import streamlit as st
 import pandas as pd
@@ -20,6 +21,7 @@ import pandas as pd
 # 共通スタイル
 from lib.styles import (
     apply_main_styles,
+    apply_chat_scroll_script,
     apply_title_styles,
     apply_company_analysis_page_styles,   # サイドバー圧縮/ロゴカード/下寄せCSSを流用
     apply_slide_generation_page_styles,
@@ -32,6 +34,9 @@ from lib.company_analysis.llm import company_briefing_without_web_search
 
 # APIクライアント
 from lib.api import get_api_client, api_available, APIError
+
+# AI Agent для генерации презентаций
+from lib.slide_generator import slide_generator
 
 # 画像/データパス
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -343,6 +348,38 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
     }
 
 
+def _get_company_report_from_messages(item_id: Optional[str]) -> str:
+    """Получает отчет о компании из сообщений в базе данных"""
+    if not item_id or not api_available():
+        return "企業レポート情報が利用できません。"
+    
+    try:
+        api = get_api_client()
+        # Получаем последние сообщения для анализа
+        messages = api.get_item_messages(item_id, limit=20)
+        
+        if not messages:
+            return "メッセージ履歴がありません。"
+        
+        # Собираем контекст из сообщений
+        report_parts = []
+        for msg in messages:
+            if msg.get("role") == "assistant":
+                content = msg.get("content", "")
+                if content and len(content) > 50:  # Фильтруем короткие сообщения
+                    report_parts.append(content)
+        
+        if report_parts:
+            # Объединяем последние 3 сообщения ассистента
+            return "\n\n".join(report_parts[-3:])
+        else:
+            return "企業分析の結果が利用できません。"
+            
+    except Exception as e:
+        st.warning(f"企業レポートの取得でエラーが発生しました: {str(e)}")
+        return "企業レポートの取得中にエラーが発生しました。"
+
+
 # =========================
 # メイン描画
 # =========================
@@ -362,6 +399,7 @@ def render_slide_generation_page():
 
     # スタイル
     apply_main_styles(hide_sidebar=False, hide_header=True)
+    apply_chat_scroll_script()
     apply_title_styles()
     apply_company_analysis_page_styles()  # サイドバー共通
     apply_slide_generation_page_styles()  # タイトル位置など
@@ -406,6 +444,36 @@ def render_slide_generation_page():
             key="slide_products_dataset_select",
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
+
+        st.markdown("---")
+        st.markdown("### AI設定")
+        
+        # API настройки
+        use_tavily_api = st.checkbox(
+            "TAVILY API使用",
+            value=False,
+            key="use_tavily_api",
+            help="TAVILY APIを使用して商品情報を強化"
+        )
+        
+        use_gpt_api = st.checkbox(
+            "GPT API使用",
+            value=False,
+            key="use_gpt_api",
+            help="GPT APIを使用してスライド内容を生成"
+        )
+        
+        if use_tavily_api:
+            tavily_uses = st.number_input(
+                "TAVILY API呼び出し回数（商品ごと）",
+                min_value=1,
+                max_value=10,
+                value=3,
+                key="tavily_uses",
+                help="各商品に対してTAVILY APIを何回呼び出すか"
+            )
+        else:
+            tavily_uses = 3
 
         sidebar_clear = st.button("クリア", use_container_width=True, help="候補とLLM出力を画面内でクリア")
 
@@ -534,3 +602,47 @@ def render_slide_generation_page():
     if st.session_state.slide_outline:
         with st.expander("下書きプレビュー（JSON）", expanded=True):
             st.json(st.session_state.slide_outline)
+        
+        # Добавляем кнопку генерации презентации
+        st.markdown("---")
+        st.subheader("3. プレゼンテーション生成")
+        
+        col1, col2 = st.columns([8, 2])
+        with col1:
+            st.info("下書きが作成されました。プレゼンテーションを生成するには下のボタンをクリックしてください。")
+        with col2:
+            generate_ppt_btn = st.button("プレゼンテーション生成", type="primary", use_container_width=True)
+        
+        if generate_ppt_btn:
+            with st.spinner("AI Agentがプレゼンテーションを生成中..."):
+                try:
+                    # Получаем отчет о компании из сообщений
+                    company_report = _get_company_report_from_messages(item_id)
+                    
+                    # Генерируем презентацию
+                    pptx_bytes = slide_generator.generate_presentation(
+                        company_name=company_internal,
+                        company_report=company_report,
+                        user_input=st.session_state.slide_meeting_notes or "",
+                        llm_proposal=st.session_state.llm_proposal_text or "",
+                        additional_instructions=st.session_state.slide_overview or "",
+                        use_tavily_api=st.session_state.get("use_tavily_api", False),
+                        use_gpt_api=st.session_state.get("use_gpt_api", False),
+                        tavily_uses=st.session_state.get("tavily_uses", 3)
+                    )
+                    
+                    # Предоставляем файл для скачивания
+                    st.success("プレゼンテーションが生成されました！")
+                    
+                    filename = f"{company_internal}_提案資料_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+                    st.download_button(
+                        label="📥 プレゼンテーションをダウンロード",
+                        data=pptx_bytes,
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True
+                    )
+                    
+                except Exception as e:
+                    st.error(f"プレゼンテーション生成でエラーが発生しました: {str(e)}")
+                    st.exception(e)

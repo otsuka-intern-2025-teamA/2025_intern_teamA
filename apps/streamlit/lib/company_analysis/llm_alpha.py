@@ -16,13 +16,16 @@ def get_client():
         )
     return OpenAI(api_key=s.openai_api_key)
 
-
-# 自然言語クエリを生成
+# llm.py に追加
 def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> List[str]:
-
+    """
+    Tavily で使う自然言語クエリを GPT で生成する。
+    返り値はクエリ文字列の配列。日本語/英語の両方を混ぜて出して良い。
+    """
     s = get_settings()
     client = get_client()
 
+    # モデル名の決定（Azure はデプロイ名必須）
     if s.use_azure:
         model_name = "gpt-5-mini"
         if not model_name:
@@ -87,102 +90,7 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
         else:
             cleaned = [f"{company} overview", f"{company} recent news", f"{company} competitors"]
 
-    print("=== Cleaned queries (final) ===")
-    print(cleaned)
-    return cleaned    
-
-
-
-
-def company_briefing_with_web_search(
-    company: str, hits: List[SearchHit], context: str = ""
-) -> str:
-    """Web検索結果を使用した企業分析"""
-    s = get_settings()
-    client = get_client()
-
-    # Azureは"デプロイ名"が必須
-    if s.use_azure:
-        model_name = "gpt-5-mini"
-        if not model_name:
-            raise RuntimeError(
-                "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT"
-                "（デプロイ名）が必要です。"
-            )
-    else:
-        model_name = s.default_model
-
-    # 参考情報を軽くまとめる（検索なし運用でも空でOK）
-    evidence = [
-        {
-            "title": h.title,
-            "url": h.url,
-            "snippet": h.snippet,
-            "published": h.published or ""
-        }
-        for h in (hits or [])
-    ]
-
-    # マークダウン形式での出力を要求するプロンプト
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "あなたは入念な企業調査アナリストです。"
-                "与えられた証拠(検索ヒット)のみを根拠に、"
-                "日本語で厳密に要約します。"
-                "推測は禁止。不明は「公開情報では不明」と明記。"
-                "出力は読みやすいマークダウン形式で、"
-                "以下のセクションを含めてください：\n"
-                "## 企業概要\n"
-                "## 提供している製品・サービス\n"
-                "## 顧客・市場\n"
-                "## 直近のニュース・動向\n"
-                "## 競合\n"
-                "## リスク・留意点\n"
-                "## 次回打ち合わせでの質問案\n"
-                "## 参考リンク\n\n"
-                "各セクションは具体的で実用的な内容にしてください。"
-                "過去のチャット履歴がある場合は、それを参考にして"
-                "一貫性のある回答を心がけてください。"
-            )
-        },
-        {
-            "role": "user",
-            "content": (
-                f"企業名: {company}\n"
-                f"検索結果(証拠): {json.dumps(evidence, ensure_ascii=False)}\n"
-                f"{context if context else ''}"
-                "要件:\n"
-                "- 証拠に存在しない事実は書かない\n"
-                "- 相反情報は「両説」と日付を併記し、"
-                "より新しい方に注釈(例:『※新しい』)\n"
-                "- 各セクションは簡潔で実用的な内容に\n"
-                "- 質問案は初回商談で必ず効果のある3〜5問\n"
-                "- マークダウン形式で読みやすく出力"
-            )
-        }
-    ]
-
-    try:
-        resp = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-        )
-    except Exception as e:
-        print(f"LLM処理中にエラーが発生: {e}")
-        error_msg = (
-            f"# {company} 企業分析\n\n"
-            f"LLMの処理中にエラーが発生しました。\n\n"
-            f"## 参考リンク\n"
-        )
-        links = "\n".join(
-            [f"- {h.url}" for h in hits if h.url] if hits else []
-        )
-        return error_msg + links
-
-    content = resp.choices[0].message.content or ""
-    return content
+    return cleaned
 
 
 def company_briefing_with_web_search(company: str, hits: List[SearchHit]) -> CompanyReport:

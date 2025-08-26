@@ -5,6 +5,7 @@ from typing import List
 from pathlib import Path
 
 from lib.company_analysis.data import SearchHit
+from lib.company_analysis.llm import generate_tavily_queries
 from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search
@@ -231,10 +232,10 @@ def render_company_analysis_page():
                         assistant_text = "企業名が未入力です。"
                     else:
                         with st.spinner("Web検索→LLMで要約中…"):
-                            hits = run_search(
-                                (company or "").strip() or default_company,
-                                count=int(top_k)
-                            )
+                            queries = generate_tavily_queries(company.strip(), user_input if not use_web_search else "")
+                            # 1クエリあたりの取得件数を計算（上限 top_k に近づける）
+                            per_query = max(1, int(top_k) // max(1, len(queries)))
+                            hits = tavily_multi_search(queries, per_query=per_query)
                             if not hits:
                                 st.warning(
                                     "検索結果が見つかりませんでした。"
@@ -277,3 +278,17 @@ def render_company_analysis_page():
                 api.post_item_message(item_id, "assistant", assistant_text)
             except Exception as e:
                 st.error(f"サーバ保存に失敗しました（assistant）: {e}")
+
+def tavily_multi_search(queries: List[str], per_query: int = 3) -> List[SearchHit]:
+    """複数クエリを順に検索し、URLで重複排除して統合する"""
+    seen_urls = set()
+    merged: List[SearchHit] = []
+    for q in queries:
+        hits = tavily_search(q, count=per_query)
+        for h in hits:
+            url = (h.url or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            merged.append(h)
+    return merged

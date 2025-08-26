@@ -7,7 +7,8 @@ from pathlib import Path
 from lib.company_analysis.data import SearchHit
 from lib.company_analysis.llm import (
     company_briefing_with_web_search,
-    company_briefing_without_web_search
+    company_briefing_without_web_search,
+    generate_tavily_queries 
 )
 
 # 履歴の保存/復元
@@ -223,30 +224,33 @@ def render_company_analysis_page():
                     context += f"{role}: {msg['content']}\n\n"
 
                 if use_web_search:
-                    # 企業名がないとWeb検索できないのでガード
-                    if not ((company or "").strip() or default_company):
+                    search_company = (company or "").strip() or default_company
+                    if not search_company:
                         st.warning("Web検索を使用する場合は、企業名を入力してください。")
                         assistant_text = "企業名が未入力です。"
                     else:
                         with st.spinner("Web検索→LLMで要約中…"):
-                            hits = run_search(
-                                (company or "").strip() or default_company,
-                                count=int(top_k)
-                            )
-                            if not hits:
+                            # ❶ GPTで検索クエリを生成
+                            queries = generate_tavily_queries(search_company, prompt.strip(), max_queries=5)
+                            all_hits = []
+                            for q in queries:
+                                hits_for_q = run_search(q, count=int(top_k))
+                                if hits_for_q:
+                                    all_hits.extend(hits_for_q)
+
+                            # ❷ 結果がゼロの場合
+                            if not all_hits:
                                 st.warning(
                                     "検索結果が見つかりませんでした。"
                                     "TAVILY_API_KEY を設定してください。"
                                 )
                                 assistant_text = "検索結果が得られませんでした。"
                             else:
-                                report = company_briefing_with_web_search(
-                                    (company or "").strip() or default_company,
-                                    hits,
-                                    context
-                                )
+                                # ❸ 集めた結果を使って要約
+                                report = company_briefing_with_web_search(search_company, all_hits, context)
                                 st.markdown(str(report))
                                 assistant_text = str(report)
+
                 else:
                     # Web検索なしで、ユーザー入力＋文脈のみ
                     with st.spinner("LLMで分析中…"):

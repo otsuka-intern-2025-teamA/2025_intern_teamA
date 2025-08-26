@@ -67,11 +67,7 @@ def _to_dt(v) -> datetime:
         return v
     s = str(v) if v is not None else ""
     s = s.replace("Z", "+00:00")
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z",
-                "%Y-%m-%dT%H:%M:%S.%f%z",
-                "%Y-%m-%dT%H:%M:%S",
-                "%Y/%m/%d",
-                "%Y-%m-%d"):
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt)
         except Exception:
@@ -104,6 +100,7 @@ def _switch_page(page_file: str, project_data=None):
 Dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
 
 if Dialog:
+
     @Dialog("新規案件の作成")
     def open_new_dialog():
         with st.form("new_project_form", clear_on_submit=True):
@@ -197,6 +194,7 @@ if Dialog:
                 return
             st.rerun()
 else:
+
     def open_new_dialog():
         st.warning("このStreamlitではダイアログ未対応です")
 
@@ -300,7 +298,9 @@ else:
                 return items
             else:
                 if st.session_state.api_error != "connection":
-                    st.error("🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。")
+                    st.error(
+                        "🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。"
+                    )
                     st.session_state.api_error = "connection"
                 return st.session_state.projects
         except APIError as e:
@@ -321,11 +321,13 @@ else:
         if not kw:
             return True
         kw = kw.strip().lower()
-        hay = " ".join([
-            str(p.get("title", "")),
-            str(p.get("company", "")),
-            str(p.get("summary", "")),
-        ]).lower()
+        hay = " ".join(
+            [
+                str(p.get("title", "")),
+                str(p.get("company", "")),
+                str(p.get("summary", "")),
+            ]
+        ).lower()
         hay = re.sub(r"\s+", " ", hay)
         return kw in hay
 
@@ -339,14 +341,14 @@ else:
 
     # ---------- 並び替え(※ 金額/回数/最終発注日は除外) ----------
     sort_map = {
-        "最終更新（新しい順）":  lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
-        "最終更新（古い順）":    lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
-        "作成日（新しい順）":    lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
-        "作成日（古い順）":      lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
-        "企業名（A→Z）":        lambda x: (str(x.get("company", "")).lower(),),
-        "企業名（Z→A）":        lambda x: (str(x.get("company", "")).lower(),),
-        "案件名（A→Z）":        lambda x: (str(x.get("title", "")).lower(),),
-        "案件名（Z→A）":        lambda x: (str(x.get("title", "")).lower(),),
+        "最終更新（新しい順）": lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
+        "最終更新（古い順）": lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
+        "作成日（新しい順）": lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
+        "作成日（古い順）": lambda x: (_to_dt(x.get("_created_raw") or x.get("created")),),
+        "企業名（A→Z）": lambda x: (str(x.get("company", "")).lower(),),
+        "企業名（Z→A）": lambda x: (str(x.get("company", "")).lower(),),
+        "案件名（A→Z）": lambda x: (str(x.get("title", "")).lower(),),
+        "案件名（Z→A）": lambda x: (str(x.get("title", "")).lower(),),
     }
     key_fn = sort_map.get(sort_choice, sort_map["最終更新（新しい順）"])
     reverse = sort_choice in {
@@ -380,7 +382,9 @@ else:
                                 unsafe_allow_html=True,
                             )
                         with h2:
-                            if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"):
+                            if st.button(
+                                "✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"
+                            ):
                                 open_edit_dialog(p)
                         st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
 

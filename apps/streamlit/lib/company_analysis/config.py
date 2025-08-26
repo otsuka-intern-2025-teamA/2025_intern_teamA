@@ -36,20 +36,14 @@ def get_settings() -> Settings:
         azure_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         default_model=os.getenv("DEFAULT_MODEL", "gpt-5-mini"),
-        default_embed_model=os.getenv(
-            "DEFAULT_EMBED_MODEL", "text-embedding-3-large"
-        ),
+        default_embed_model=os.getenv("DEFAULT_EMBED_MODEL", "text-embedding-3-large"),
         azure_chat_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
         azure_embed_deployment=os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT"),
         tavily_api_key=os.getenv("TAVILY_API_KEY"),
         debug=os.getenv("DEBUG", "0") == "1",
     )
     if settings.use_azure and not settings.azure_api_key:
-        raise RuntimeError(
-            "AZURE_OPENAI_ENDPOINT is set but AZURE_OPENAI_API_KEY is missing."
-        )
+        raise RuntimeError("AZURE_OPENAI_ENDPOINT is set but AZURE_OPENAI_API_KEY is missing.")
     if not settings.use_azure and not settings.openai_api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY is missing (and no Azure endpoint set)."
-        )
+        raise RuntimeError("OPENAI_API_KEY is missing (and no Azure endpoint set).")
     return settings

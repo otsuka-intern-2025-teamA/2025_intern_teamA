@@ -2,6 +2,7 @@
 データベース接続設定
 SQLiteとSQLAlchemyの設定
 """
+
 import os
 from pathlib import Path
 
@@ -29,7 +30,7 @@ engine = create_engine(
         "check_same_thread": False,  # FastAPIでSQLiteを使用するため
         "timeout": 20,  # デッドロック回避
     },
-    echo=False  # 開発時はTrueでSQLログを表示
+    echo=False,  # 開発時はTrueでSQLログを表示
 )
 
 
@@ -65,18 +66,19 @@ def init_db():
     テーブル作成とスキーマ実行
     """
     from .models import Base
-    
+
     # テーブル作成
     Base.metadata.create_all(bind=engine)
-    
+
     # スキーマファイルがある場合は実行(FTS5等の設定)
     schema_path = Path(__file__).parent.parent.parent.parent.parent / "data" / "ddl" / "schema.sql"
     if schema_path.exists():
-        with open(schema_path, encoding='utf-8') as f:
+        with open(schema_path, encoding="utf-8") as f:
             schema_sql = f.read()
-        
+
         # SQLiteに直接実行(SQLAlchemyでは実行できないFTS5等の設定)
         import sqlite3
+
         conn = sqlite3.connect(DB_PATH)
         try:
             conn.executescript(schema_sql)

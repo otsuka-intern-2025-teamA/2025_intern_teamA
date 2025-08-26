@@ -52,19 +52,21 @@ def tavily_search(query: str, count: int = 6) -> list[SearchHit]:
             "query": query,
             "max_results": count,
             "include_answer": False,
-            "search_depth": "advanced"
+            "search_depth": "advanced",
         },
-        timeout=20
+        timeout=20,
     )
     if r.status_code == 200:
         data = r.json()
         for item in data.get("results", []):
-            hits.append(SearchHit(
-                title=item.get("title", ""),
-                url=item.get("url", ""),
-                snippet=item.get("content", ""),
-                published=item.get("published_date")
-            ))
+            hits.append(
+                SearchHit(
+                    title=item.get("title", ""),
+                    url=item.get("url", ""),
+                    snippet=item.get("content", ""),
+                    published=item.get("published_date"),
+                )
+            )
     return hits
 
 
@@ -82,7 +84,7 @@ def render_company_analysis_page():
             page_title="企業分析",
             page_icon=str(ICON_PATH),  # ← Pathはstrに
             layout="wide",
-            initial_sidebar_state="expanded"
+            initial_sidebar_state="expanded",
         )
     except Exception:
         pass
@@ -102,7 +104,7 @@ def render_company_analysis_page():
     # サイドバーを表示(hide_sidebar=False)。ヘッダは非表示のまま(hide_header=True)。
     apply_main_styles(hide_sidebar=False, hide_header=True)
     apply_title_styles()
-    apply_company_analysis_page_styles()   # ← 本ページ専用のCSS(上詰め & サイドバー圧縮 & ロゴカード)
+    apply_company_analysis_page_styles()  # ← 本ページ専用のCSS(上詰め & サイドバー圧縮 & ロゴカード)
 
     # ==== 左サイドバー ====
     with st.sidebar:
@@ -111,10 +113,7 @@ def render_company_analysis_page():
 
         # 企業名
         company = st.text_input(
-            "企業名",
-            value=default_company,
-            key="company_input",
-            placeholder="例）大塚商会、NTTデータ など"
+            "企業名", value=default_company, key="company_input", placeholder="例）大塚商会、NTTデータ など"
         )
 
         # Web検索の有無
@@ -122,31 +121,25 @@ def render_company_analysis_page():
             "Web検索を使用",
             value=True,
             key="use_web_search_checkbox",
-            help=(
-                "オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\n"
-                "オフ：ユーザー入力のみをもとに分析"
-            )
+            help=("オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\nオフ：ユーザー入力のみをもとに分析"),
         )
 
         # 検索結果件数
-        top_k = st.number_input(
+        top_k = st.selectbox(
             "検索結果件数",
-            min_value=1,
-            max_value=10,
-            value=6,
-            step=1,
-            key="top_k_input"
+            options=list(range(1, 11)),
+            index=5,  # 既定=6件
+            key="top_k_input",
         )
 
         # 履歴参照件数
+        st.session_state.setdefault("history_reference_count", 3)
         history_count = st.selectbox(
             "直近の履歴を何件参照する",
-            options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            index=2,  # デフォルト3件
-            key="history_reference_count_select",
+            options=list(range(1, 11)),
+            key="history_reference_count",
             help="チャット回答時に過去の履歴を文脈として参照します"
         )
-        st.session_state.history_reference_count = history_count
 
         # 画面内チャット履歴クリア(サーバ側は保持)
         if st.button("画面内チャット履歴をクリア", use_container_width=True):
@@ -170,13 +163,11 @@ def render_company_analysis_page():
         st.session_state.chat_messages = []
 
     api = get_api_client()
-    if (item_id is not None and
-            st.session_state.get("chat_loaded_item_id") != item_id):
+    if item_id is not None and st.session_state.get("chat_loaded_item_id") != item_id:
         try:
             msgs = api.get_item_messages(item_id)
             st.session_state.chat_messages = [
-                {"role": m.get("role", "assistant"), "content": m.get("content", "")}
-                for m in (msgs or [])
+                {"role": m.get("role", "assistant"), "content": m.get("content", "")} for m in (msgs or [])
             ]
         except APIError as e:
             st.warning(f"チャット履歴の取得に失敗しました: {e}")
@@ -214,8 +205,8 @@ def render_company_analysis_page():
                 # 直近の履歴(ユーザー/アシスタント往復×N件)
                 history_n = st.session_state.get("history_reference_count", 3)
                 recent_history = (
-                    st.session_state.chat_messages[-history_n*2:]
-                    if len(st.session_state.chat_messages) > history_n*2
+                    st.session_state.chat_messages[-history_n * 2 :]
+                    if len(st.session_state.chat_messages) > history_n * 2
                     else st.session_state.chat_messages
                 )
                 context = "過去のチャット履歴:\n"
@@ -240,10 +231,7 @@ def render_company_analysis_page():
 
                             # ❷ 結果がゼロの場合
                             if not all_hits:
-                                st.warning(
-                                    "検索結果が見つかりませんでした。"
-                                    "TAVILY_API_KEY を設定してください。"
-                                )
+                                st.warning("検索結果が見つかりませんでした。TAVILY_API_KEY を設定してください。")
                                 assistant_text = "検索結果が得られませんでした。"
                             else:
                                 # ❸ 集めた結果を使って要約
@@ -259,11 +247,7 @@ def render_company_analysis_page():
                             st.warning("企業名を入力してください。")
                             assistant_text = "企業名が未入力です。"
                         else:
-                            report = company_briefing_without_web_search(
-                                target_company,
-                                prompt.strip(),
-                                context
-                            )
+                            report = company_briefing_without_web_search(target_company, prompt.strip(), context)
                             st.markdown(str(report))
                             assistant_text = str(report)
             except Exception as e:
@@ -271,9 +255,7 @@ def render_company_analysis_page():
                 st.error(assistant_text)
 
         # 4) アシスタント応答を履歴 & サーバ保存
-        st.session_state.chat_messages.append(
-            {"role": "assistant", "content": assistant_text}
-        )
+        st.session_state.chat_messages.append({"role": "assistant", "content": assistant_text})
         if item_id is not None:
             try:
                 api.post_item_message(item_id, "assistant", assistant_text)

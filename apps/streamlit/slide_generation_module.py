@@ -1,13 +1,4 @@
 # slide_generation_module.py
-# ---------------------------------------------------------
-# スライド作成ページ(サイドバー追加版 × カードUI)
-# - サイドバー:ロゴ/案件一覧へ戻る(左下固定)/企業名/提案件数/履歴参照件数/商材データセット選択/クリア
-# - 本文:上段ヘッダ(左=見出し/右=候補取得ボタン)、
-#          左=商談詳細＆参考資料アップ、右=候補カード(画像・理由・80字概要)、
-#          下段=生成とドラフトJSON
-# - 生成ロジック:CSV→粗選定→LLMでTop-K選抜→LLMで80字要約(失敗時は短縮)
-# ---------------------------------------------------------
-
 from __future__ import annotations
 
 import json
@@ -18,34 +9,27 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
-# APIクライアント(企業分析のチャット履歴取得に使用)
-from lib.api import api_available, get_api_client
-
-# スライド生成モジュール
-from lib.slide_generator import SlideGenerator
-
-# 共通スタイル
-from lib.styles import (
-    apply_company_analysis_page_styles,  # サイドバー圧縮/ロゴカード/下寄せCSSを流用
-    apply_main_styles,
-    apply_slide_generation_page_styles,
-    apply_title_styles,
-    render_sidebar_logo_card,
-    render_slide_generation_title,  # タイトル描画(h1.slide-generation-title)
-)
-
-# LLM クライアント(Azure / OpenAI どちらでもOK)
+import streamlit as st
 from openai import AzureOpenAI, OpenAI
 
-import streamlit as st
-
-# 画像/データパス
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
 ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
+
+# --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
+from lib.styles import (
+    apply_company_analysis_page_styles,
+    apply_main_styles,
+    apply_slide_generation_page_styles,
+    apply_title_styles,
+    render_sidebar_logo_card,
+    render_slide_generation_title,
+)
+
+from lib.api import api_available, get_api_client
+from lib.slide_generator import SlideGenerator
 
 
 # =========================
@@ -53,31 +37,27 @@ PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 # =========================
 def _ensure_session_defaults() -> None:
     ss = st.session_state
-    ss.setdefault("selected_project", None)       # 案件一覧から遷移時に入る
+    ss.setdefault("selected_project", None)
     ss.setdefault("api_error", None)
     ss.setdefault("slide_meeting_notes", "")
-    ss.setdefault("uploaded_files_store", [])     # file_uploaderの保存用
-    ss.setdefault("product_candidates", [])       # 表示用カードデータの配列
+    ss.setdefault("uploaded_files_store", [])
+    ss.setdefault("product_candidates", [])
     ss.setdefault("slide_outline", None)
     ss.setdefault("slide_overview", "")
-    ss.setdefault("slide_history_reference_count", 3)  # 直近N往復参照(デフォ3)
-    ss.setdefault("slide_top_k", 10)                   # 提案件数(デフォ10)
-    ss.setdefault("slide_products_dataset", "Auto")    # 商材データセット選択
-    ss.setdefault("slide_use_tavily_api", True)        # TAVILY API使用フラグ
-    ss.setdefault("slide_use_gpt_api", True)           # GPT API使用フラグ
-    ss.setdefault("slide_tavily_uses", 2)              # 製品あたりのTAVILY API呼び出し回数
+
+    # ここが既定値（以降ウィジェットには value/index 渡さない）
+    ss.setdefault("slide_history_reference_count", 3)  # 1〜10
+    ss.setdefault("slide_top_k", 10)                   # 3〜20
+    ss.setdefault("slide_products_dataset", "Auto")    # Auto or 実在フォルダ名
+    ss.setdefault("slide_use_tavily_api", True)
+    ss.setdefault("slide_use_gpt_api", True)
+    ss.setdefault("slide_tavily_uses", 2)              # 1〜5
 
 
 # =========================
-# LLM クライアント準備(Azure / OpenAI 自動判定)
+# LLM クライアント準備
 # =========================
 def _get_chat_client():
-    """
-    - Azure: USE_AZURE=true or AZURE_OPENAI_ENDPOINT があれば使用
-      必須: AZURE_OPENAI_API_KEY, AZURE_OPENAI_CHAT_DEPLOYMENT
-      任意: API_VERSION (default 2024-06-01)
-    - OpenAI: OPENAI_API_KEY, DEFAULT_MODEL (任意・既定 gpt-4o-mini)
-    """
     use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
     if use_azure:
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -97,13 +77,10 @@ def _get_chat_client():
     return client, model
 
 
-# =========================
-# 便利関数(価格など)
-# =========================
 def _to_float(val):
     if val is None:
         return None
-    if isinstance(val, int | float):
+    if isinstance(val, (int, float)):
         if isinstance(val, float) and pd.isna(val):
             return None
         return float(val)
@@ -123,11 +100,7 @@ def _fmt_price(val) -> str:
     return f"¥{round(v):,}" if v is not None else "—"
 
 
-# =========================
-# データセット/コンテキスト収集
-# =========================
 def _list_product_datasets() -> list[str]:
-    """productsディレクトリ配下のサブフォルダ名を列挙(Autoを先頭)"""
     if not PRODUCTS_DIR.exists():
         return ["Auto"]
     ds = ["Auto"]
@@ -138,7 +111,6 @@ def _list_product_datasets() -> list[str]:
 
 
 def _gather_messages_context(item_id: str | None, history_n: int) -> str:
-    """企業分析の直近N往復(=2N発言)をまとめて文字列化"""
     if not (item_id and api_available()):
         return ""
     try:
@@ -157,11 +129,6 @@ def _gather_messages_context(item_id: str | None, history_n: int) -> str:
 
 
 def _load_products_from_csv(dataset: str) -> pd.DataFrame:
-    """
-    商材CSVをロード(存在カラムが無ければ作成)
-    期待カラム: id(無ければ生成), name, category, price, description, tags
-             + image_url/image/thumbnail(任意), source_csv(追加)
-    """
     frames: list[pd.DataFrame] = []
     if not PRODUCTS_DIR.exists():
         return pd.DataFrame()
@@ -199,9 +166,6 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
-# =========================
-# 検索フォールバック(簡易スコアリング)
-# =========================
 def _simple_tokenize(text: str) -> list[str]:
     text = str(text or "").lower()
     text = re.sub(r"[^a-z0-9\u3040-\u30ff\u4e00-\u9fff]+", " ", text)
@@ -209,16 +173,9 @@ def _simple_tokenize(text: str) -> list[str]:
     return [t for t in toks if len(t) >= 2]
 
 
-def _fallback_rank_products(
-    notes: str,
-    messages_ctx: str,
-    products_df: pd.DataFrame,
-    top_pool: int
-) -> list[dict[str, Any]]:
-    """商談メモ+履歴の語句一致で素朴にスコアリング → 上位 top_pool を返す"""
+def _fallback_rank_products(notes: str, messages_ctx: str, products_df: pd.DataFrame, top_pool: int) -> list[dict[str, Any]]:
     if products_df.empty:
         return []
-
     query_text = (notes or "") + "\n" + (messages_ctx or "")
     q_tokens = _simple_tokenize(query_text)
 
@@ -233,10 +190,7 @@ def _fallback_rank_products(
     scored: list[tuple[float, dict[str, Any]]] = []
     for _, row in products_df.iterrows():
         t = _row_text(row)
-        score = 0.0
-        for tok in q_tokens:
-            if tok in t:
-                score += 1.0
+        score = sum(1.0 for tok in q_tokens if tok in t)
         reason = f"一致語句数={int(score)}" if score > 0 else "一致なし（低スコア）"
         scored.append((score, {
             "id": row.get("id"),
@@ -252,14 +206,10 @@ def _fallback_rank_products(
             "score": round(float(score), 2),
             "reason": reason,
         }))
-
     scored.sort(key=lambda x: (x[0], str(x[1]["name"]).lower()), reverse=True)
     return [d for _, d in scored[:top_pool]]
 
 
-# =========================
-# LLM で Top-K 選抜+理由生成 / 80字要約
-# =========================
 def _extract_json(s: str) -> dict[str, Any]:
     s = (s or "").strip()
     if not s:
@@ -279,8 +229,20 @@ def _extract_json(s: str) -> dict[str, Any]:
     return {}
 
 
+def _get_chat_json(client, model, messages):
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
+        return resp.choices[0].message.content or ""
+    except Exception:
+        resp = client.chat.completions.create(model=model, messages=messages)
+        return resp.choices[0].message.content or ""
+
+
 def _llm_pick_products(pool: list[dict[str, Any]], top_k: int, company: str, notes: str, ctx: str) -> list[dict[str, Any]]:
-    """カタログ(pool)から LLM で Top-K を選抜し、短い理由と信頼度を付与"""
     if not pool:
         return []
     client, model = _get_chat_client()
@@ -315,26 +277,13 @@ def _llm_pick_products(pool: list[dict[str, Any]], top_k: int, company: str, not
 # 候補カタログ:
 {catalog}
 """
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-            response_format={"type": "json_object"},
-        )
-        txt = resp.choices[0].message.content or ""
-    except Exception:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-        )
-        txt = resp.choices[0].message.content or ""
-
+    txt = _get_chat_json(
+        client, model,
+        [
+            {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
+            {"role": "user", "content": user},
+        ],
+    )
     data = _extract_json(txt)
     recs = data.get("recommendations", []) if isinstance(data, dict) else []
     if not recs:
@@ -358,7 +307,6 @@ def _llm_pick_products(pool: list[dict[str, Any]], top_k: int, company: str, not
 
 
 def _summarize_overviews_llm(cands: list[dict[str, Any]]) -> None:
-    """各製品の概要を 80字以内で LLM 要約(失敗時は説明を短縮)"""
     items = []
     has_any = False
     for c in cands:
@@ -380,26 +328,13 @@ def _summarize_overviews_llm(cands: list[dict[str, Any]]) -> None:
 {{"summaries":[{{"id":"<id>","overview":"<80字以内>"}}]}}
 入力:
 {payload}"""
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-            txt = resp.choices[0].message.content or ""
-        except Exception:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            txt = resp.choices[0].message.content or ""
-
+        txt = _get_chat_json(
+            client, model,
+            [
+                {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
+                {"role": "user", "content": prompt},
+            ],
+        )
         data = _extract_json(txt)
         mp = {}
         if isinstance(data, dict):
@@ -436,9 +371,6 @@ def _resolve_product_image_src(rec: dict[str, Any]) -> str | None:
     return None
 
 
-# =========================
-# 候補検索(CSV→粗選定→LLM選抜→LLM要約)
-# =========================
 def _search_product_candidates(
     company: str,
     item_id: str | None,
@@ -446,20 +378,16 @@ def _search_product_candidates(
     top_k: int,
     history_n: int,
     dataset: str,
-    uploaded_files: list[Any],   # いまは未使用(将来:埋め込み/要約に利用可)
+    uploaded_files: list[Any],
 ) -> list[dict[str, Any]]:
-    # 企業分析の文脈
     ctx = _gather_messages_context(item_id, history_n)
 
-    # CSV 読み込み
     df = _load_products_from_csv(dataset)
     if df.empty:
         return []
 
-    # 粗選定 → 上位プール(Top-40 目安)
     pool = _fallback_rank_products(meeting_notes, ctx, df, top_pool=max(40, top_k * 3))
 
-    # LLM で Top-K 選抜+理由付与(失敗時は粗選定上位を採用)
     try:
         selected = _llm_pick_products(pool, top_k, company, meeting_notes, ctx)
         if not selected:
@@ -467,14 +395,10 @@ def _search_product_candidates(
     except Exception:
         selected = pool[:top_k]
 
-    # 各製品の 80字概要を LLM 要約(失敗時は短縮)
     _summarize_overviews_llm(selected)
     return selected
 
 
-# =========================
-# ドラフト作成
-# =========================
 def _make_outline_preview(company: str, meeting_notes: str, selected_products: list[dict[str, Any]], overview: str) -> dict[str, Any]:
     return {
         "title": f"{company} 向け提案資料（ドラフト）",
@@ -503,11 +427,7 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: l
     }
 
 
-# =========================
-# メイン描画
-# =========================
 def render_slide_generation_page():
-    """スライド作成ページ(右ペイン=候補カード表示)"""
     _ensure_session_defaults()
 
     try:
@@ -520,13 +440,11 @@ def render_slide_generation_page():
     except Exception:
         pass
 
-    # スタイル
     apply_main_styles(hide_sidebar=False, hide_header=True)
     apply_title_styles()
-    apply_company_analysis_page_styles()  # サイドバー共通
-    apply_slide_generation_page_styles()  # タイトル位置など
+    apply_company_analysis_page_styles()
+    apply_slide_generation_page_styles()
 
-    # 案件コンテキスト
     pj = st.session_state.get("selected_project")
     if pj:
         title_text = f"スライド作成 - {pj['title']} / {pj['company']}"
@@ -537,62 +455,38 @@ def render_slide_generation_page():
         company_internal = ""
         item_id = None
 
-    # ---------- サイドバー ----------
     with st.sidebar:
         render_sidebar_logo_card(LOGO_PATH)
-
         st.markdown("### 設定")
         st.text_input("企業名", value=company_internal, key="slide_company_input", disabled=True)
 
-        st.session_state.slide_top_k = st.number_input(
-            "提案件数",
-            min_value=3, max_value=20, value=st.session_state.slide_top_k, step=1,
-            key="slide_top_k_input",
-        )
+        # --- ここから“数字はすべて一覧選択型” & Session State 既定値のみ使用 ---
+        st.selectbox("提案件数", options=list(range(3, 21)), key="slide_top_k")
 
-        st.session_state.slide_history_reference_count = st.selectbox(
+        st.selectbox(
             "履歴参照件数（往復）",
             options=list(range(1, 11)),
-            index=max(0, st.session_state.slide_history_reference_count - 1),
-            key="slide_history_count_select",
+            key="slide_history_reference_count",
             help="企業分析のチャット履歴の直近N往復を文脈として使用",
         )
 
-        datasets = _list_product_datasets()
-        st.session_state.slide_products_dataset = st.selectbox(
+        st.selectbox(
             "商材データセット",
-            options=datasets,
-            index=datasets.index(st.session_state.slide_products_dataset) if st.session_state.slide_products_dataset in datasets else 0,
-            key="slide_products_dataset_select",
+            options=_list_product_datasets(),
+            key="slide_products_dataset",
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
 
         st.markdown("---")
         st.markdown("### AI設定")
-        
-        st.session_state.slide_use_gpt_api = st.checkbox(
-            "GPT API使用",
-            value=st.session_state.slide_use_gpt_api,
-            key="slide_use_gpt_api_checkbox",
-            help="Azure OpenAI GPT-5-miniを使用して企業課題分析と製品情報要約を行います"
-        )
-        
-        st.session_state.slide_use_tavily_api = st.checkbox(
-            "TAVILY API使用",
-            value=st.session_state.slide_use_tavily_api,
-            key="slide_use_tavily_api_checkbox",
-            help="TAVILY APIを使用して製品情報のウェブ検索を行います"
-        )
-        
-        if st.session_state.slide_use_tavily_api:
-            st.session_state.slide_tavily_uses = st.number_input(
-                "TAVILY API呼び出し回数（製品あたり）",
-                min_value=1, max_value=5, value=st.session_state.slide_tavily_uses, step=1,
-                key="slide_tavily_uses_input",
-                help="各製品に対してTAVILY APIを何回呼び出すかを指定します"
-            )
 
-        sidebar_clear = st.button("クリア", use_container_width=True, help="候補を画面内でクリア")
+        st.checkbox("GPT API使用", key="slide_use_gpt_api")
+        st.checkbox("TAVILY API使用", key="slide_use_tavily_api")
+
+        if st.session_state.slide_use_tavily_api:
+            st.selectbox("TAVILY API呼び出し回数（製品あたり）", options=list(range(1, 6)), key="slide_tavily_uses")
+
+        sidebar_clear = st.button("クリア", use_container_width=True)
 
         st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
         if st.button("← 案件一覧に戻る", use_container_width=True):
@@ -601,20 +495,16 @@ def render_slide_generation_page():
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------- タイトル ----------
     render_slide_generation_title(title_text)
 
-    # ---------- 見出し行(左=見出し / 右=候補取得ボタン) ----------
     head_l, head_r = st.columns([8, 2])
     with head_l:
         st.subheader("1. 商品提案")
     with head_r:
         search_btn = st.button("候補を取得", use_container_width=True)
 
-    # ====================== 1. 商品提案(左右2ペイン) ======================
     left, right = st.columns([5, 7], gap="large")
 
-    # ---- 左:商談詳細 + 参考資料
     with left:
         st.markdown("**● 商談の詳細**")
         st.text_area(
@@ -640,11 +530,9 @@ def render_slide_generation_page():
         elif st.session_state.uploaded_files_store:
             st.caption(f"前回アップロード済み: {len(st.session_state.uploaded_files_store)} ファイル")
 
-    # ---- 右:候補カード
     with right:
         st.markdown("**● 候補（カード表示）**")
 
-        # 「候補を取得」クリックで:候補検索 → 出力保存
         if search_btn:
             if not company_internal.strip():
                 st.error("企業が選択されていません。案件一覧から企業を選んでください。")
@@ -665,7 +553,6 @@ def render_slide_generation_page():
             st.session_state.product_candidates = []
             st.info("候補をクリアしました。")
 
-        # カード描画
         recs = st.session_state.product_candidates or []
         if not recs:
             st.info("候補がありません。『候補を取得』を押してください。")
@@ -699,11 +586,10 @@ def render_slide_generation_page():
 
     st.divider()
 
-    # ====================== 2. スライド生成 ======================
     st.subheader("2. スライド生成")
-
     row_l, row_r = st.columns([8, 2], vertical_alignment="center")
     with row_l:
+        # これは key を使わず戻り値を直接 Session State に入れるので OK
         st.session_state.slide_overview = st.text_input(
             "概説（任意）",
             value=st.session_state.slide_overview or "",
@@ -718,9 +604,7 @@ def render_slide_generation_page():
         elif not st.session_state.product_candidates:
             st.error("製品候補がありません。先に「候補を取得」を押してください。")
         else:
-            selected = list(st.session_state.product_candidates or [])  # 全候補を採用
-            
-            # 下書きの作成
+            selected = list(st.session_state.product_candidates or [])
             outline = _make_outline_preview(
                 company_internal,
                 st.session_state.slide_meeting_notes or "",
@@ -728,8 +612,7 @@ def render_slide_generation_page():
                 st.session_state.slide_overview or "",
             )
             st.session_state.slide_outline = outline
-            
-            # プレゼンテーション生成
+
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
                     generator = SlideGenerator()
@@ -741,14 +624,9 @@ def render_slide_generation_page():
                         use_gpt=st.session_state.slide_use_gpt_api,
                         tavily_uses=st.session_state.slide_tavily_uses
                     )
-                    
-                    # ダウンロードボタンの表示
                     st.success("プレゼンテーションが生成されました！")
-                    
-                    # ファイル名の生成
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"{company_internal}_提案書_{timestamp}.pptx"
-                    
                     st.download_button(
                         label="📥 プレゼンテーションをダウンロード",
                         data=pptx_data,
@@ -757,7 +635,6 @@ def render_slide_generation_page():
                         use_container_width=True,
                         type="primary"
                     )
-                    
                 except Exception as e:
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")

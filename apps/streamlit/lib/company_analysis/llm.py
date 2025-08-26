@@ -17,18 +17,16 @@ def get_client():
         )
     return OpenAI(api_key=s.openai_api_key)
 
+
 # 自然言語クエリを生成
 def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> list[str]:
-
     s = get_settings()
     client = get_client()
 
     if s.use_azure:
         model_name = "gpt-5-mini"
         if not model_name:
-            raise RuntimeError(
-                "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。"
-            )
+            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
     else:
         model_name = s.default_model
 
@@ -48,14 +46,13 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
         f"会社名: {company}\n"
         f"ユーザー入力/意図: {user_input}\n"
         f"最大クエリ数: {max_queries}\n"
-        "フォーマット: {\"queries\": [\"...\"]}"
+        'フォーマット: {"queries": ["..."]}'
     )
 
     try:
         resp = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "system", "content": sys},
-                      {"role": "user", "content": usr}],
+            messages=[{"role": "system", "content": sys}, {"role": "user", "content": usr}],
             response_format={"type": "json_object"},
         )
         content = resp.choices[0].message.content or "{}"
@@ -89,12 +86,10 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
 
     print("=== Cleaned queries (final) ===")
     print(cleaned)
-    return cleaned    
+    return cleaned
 
 
-def company_briefing_with_web_search(
-    company: str, hits: list[SearchHit], context: str = ""
-) -> str:
+def company_briefing_with_web_search(company: str, hits: list[SearchHit], context: str = "") -> str:
     """Web検索結果を使用した企業分析"""
     s = get_settings()
     client = get_client()
@@ -103,22 +98,13 @@ def company_briefing_with_web_search(
     if s.use_azure:
         model_name = "gpt-5-mini"
         if not model_name:
-            raise RuntimeError(
-                "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT"
-                "（デプロイ名）が必要です。"
-            )
+            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
     else:
         model_name = s.default_model
 
     # 参考情報を軽くまとめる(検索なし運用でも空でOK)
     evidence = [
-        {
-            "title": h.title,
-            "url": h.url,
-            "snippet": h.snippet,
-            "published": h.published or ""
-        }
-        for h in (hits or [])
+        {"title": h.title, "url": h.url, "snippet": h.snippet, "published": h.published or ""} for h in (hits or [])
     ]
 
     # マークダウン形式での出力を要求するプロンプト
@@ -143,7 +129,7 @@ def company_briefing_with_web_search(
                 "各セクションは具体的で実用的な内容にしてください。"
                 "過去のチャット履歴がある場合は、それを参考にして"
                 "一貫性のある回答を心がけてください。"
-            )
+            ),
         },
         {
             "role": "user",
@@ -158,8 +144,8 @@ def company_briefing_with_web_search(
                 "- 各セクションは簡潔で実用的な内容に\n"
                 "- 質問案は初回商談で必ず効果のある3〜5問\n"
                 "- マークダウン形式で読みやすく出力"
-            )
-        }
+            ),
+        },
     ]
 
     try:
@@ -169,23 +155,15 @@ def company_briefing_with_web_search(
         )
     except Exception as e:
         print(f"LLM処理中にエラーが発生: {e}")
-        error_msg = (
-            f"# {company} 企業分析\n\n"
-            f"LLMの処理中にエラーが発生しました。\n\n"
-            f"## 参考リンク\n"
-        )
-        links = "\n".join(
-            [f"- {h.url}" for h in hits if h.url] if hits else []
-        )
+        error_msg = f"# {company} 企業分析\n\nLLMの処理中にエラーが発生しました。\n\n## 参考リンク\n"
+        links = "\n".join([f"- {h.url}" for h in hits if h.url] if hits else [])
         return error_msg + links
 
     content = resp.choices[0].message.content or ""
     return content
 
 
-def company_briefing_without_web_search(
-    company: str, user_input: str, context: str = ""
-) -> str:
+def company_briefing_without_web_search(company: str, user_input: str, context: str = "") -> str:
     """Web検索なしでユーザー入力のみを使用した企業分析"""
     s = get_settings()
     client = get_client()
@@ -194,10 +172,7 @@ def company_briefing_without_web_search(
     if s.use_azure:
         model_name = "gpt-5-mini"
         if not model_name:
-            raise RuntimeError(
-                "Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT"
-                "（デプロイ名）が必要です。"
-            )
+            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
     else:
         model_name = s.default_model
 
@@ -218,7 +193,7 @@ def company_briefing_without_web_search(
                 "各セクションは具体的で実用的な内容にしてください。"
                 "過去のチャット履歴がある場合は、それを参考にして"
                 "一貫性のある回答を心がけてください。"
-            )
+            ),
         },
         {
             "role": "user",
@@ -228,8 +203,8 @@ def company_briefing_without_web_search(
                 f"{context if context else ''}\n\n"
                 "上記の質問・要望に基づいて、"
                 "企業分析に関するアドバイスをマークダウン形式で出力してください。"
-            )
-        }
+            ),
+        },
     ]
 
     try:
@@ -239,19 +214,13 @@ def company_briefing_without_web_search(
         )
     except Exception as e:
         print(f"LLM処理中にエラーが発生: {e}")
-        return (
-            f"# {company} 企業分析\n\n"
-            f"LLMの処理中にエラーが発生しました。\n\n"
-            f"ユーザーの質問: {user_input}"
-        )
+        return f"# {company} 企業分析\n\nLLMの処理中にエラーが発生しました。\n\nユーザーの質問: {user_input}"
 
     content = resp.choices[0].message.content or ""
     return content
 
 
 # 後方互換性のため既存の関数名も保持
-def company_briefing(
-    company: str, hits: list[SearchHit], context: str = ""
-) -> str:
+def company_briefing(company: str, hits: list[SearchHit], context: str = "") -> str:
     """後方互換性のための関数(company_briefing_with_web_searchと同じ)"""
     return company_briefing_with_web_search(company, hits, context)

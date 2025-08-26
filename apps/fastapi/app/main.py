@@ -2,6 +2,7 @@
 FastAPIアプリケーションのエントリーポイント
 案件管理システムの中心的なAPIサーバー
 """
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,7 @@ from .db.session import init_db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """アプリケーション起動時・終了時の処理"""
@@ -26,18 +28,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         raise
-    
+
     yield
-    
+
     # 終了時
     logger.info("Shutting down...")
 
+
 # FastAPIアプリケーション作成
 app = FastAPI(
-    title="案件管理システム API",
-    description="企業分析機能付きの案件管理システム",
-    version="1.0.0",
-    lifespan=lifespan
+    title="案件管理システム API", description="企業分析機能付きの案件管理システム", version="1.0.0", lifespan=lifespan
 )
 
 # CORS設定(Streamlitフロントエンドからのアクセスを許可)
@@ -54,42 +54,32 @@ app.include_router(cases.router)
 app.include_router(analysis.router)
 app.include_router(messages.router)
 
+
 @app.get("/")
 async def root():
     """ヘルスチェック用エンドポイント"""
-    return {
-        "message": "案件管理システム API サーバーが稼働中",
-        "status": "healthy",
-        "version": "1.0.0"
-    }
+    return {"message": "案件管理システム API サーバーが稼働中", "status": "healthy", "version": "1.0.0"}
+
 
 @app.get("/health")
 async def health_check():
     """詳細なヘルスチェック"""
     from .db.models import Item
     from .db.session import SessionLocal
-    
+
     try:
         # データベース接続確認
         db = SessionLocal()
         item_count = db.query(Item).count()
         db.close()
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "items_count": item_count
-        }
+
+        return {"status": "healthy", "database": "connected", "items_count": item_count}
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unavailable")
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, log_level="info")

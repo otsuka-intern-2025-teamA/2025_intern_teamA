@@ -26,20 +26,23 @@ from lib.api import APIError, api_available, format_date, get_api_client
 from lib.styles import (
     apply_main_styles,
     apply_projects_list_page_styles,  # ← このページ専用CSS(サイドバー圧縮/ロゴカード等)
-    apply_title_styles,  # ← タイトルの基本スタイルを適用
-    render_projects_list_title,  # ← タイトル描画
-    render_sidebar_logo_card,  # ← サイドバー上部ロゴ
+    apply_title_styles,               # ← タイトルの基本スタイルを適用
+    render_projects_list_title,       # ← タイトル描画
+    render_sidebar_logo_card,         # ← サイドバー上部ロゴ
 )
 from slide_generation_module import render_slide_generation_page
 
 # ---- ページ設定(最初に実行)
-st.set_page_config(
-    page_title="案件一覧",
-    page_icon=str(ICON_PATH),
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={"Get Help": None, "Report a bug": None, "About": None},
-)
+try:
+    st.set_page_config(
+        page_title="案件一覧",
+        page_icon=str(ICON_PATH),
+        layout="wide",
+        initial_sidebar_state="expanded",
+        menu_items={"Get Help": None, "Report a bug": None, "About": None},
+    )
+except Exception:
+    pass
 
 # ---- 共通スタイル適用(サイドバーを出す)
 apply_main_styles(hide_sidebar=False, hide_header=True)
@@ -57,6 +60,10 @@ if "api_error" not in st.session_state:
     st.session_state.api_error = None
 if "current_page" not in st.session_state:
     st.session_state.current_page = "案件一覧"
+
+# 列スライドの位置（1列=縦2枚）
+if "card_col_offset" not in st.session_state:
+    st.session_state.card_col_offset = 0
 
 
 def _fmt(d):
@@ -221,7 +228,6 @@ else:
 
     # ---------- サイドバー ----------
     with st.sidebar:
-        # ロゴ(白背景ラウンドボックス)
         render_sidebar_logo_card(LOGO_PATH)
 
         # 並び替え
@@ -305,9 +311,7 @@ else:
                 return items
             else:
                 if st.session_state.api_error != "connection":
-                    st.error(
-                        "🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。"
-                    )
+                    st.error("🔌 バックエンドAPIに接続できません。FastAPIサーバーが起動していることを確認してください。")
                     st.session_state.api_error = "connection"
                 return st.session_state.projects
         except APIError as e:
@@ -323,7 +327,7 @@ else:
 
     items = fetch_items_from_api()
 
-    # ---------- 検索・フィルタ適用(※ 総取引額下限なし) ----------
+    # ---------- 検索・フィルタ適用 ----------
     def _match_keyword(p, kw: str) -> bool:
         if not kw:
             return True
@@ -346,7 +350,7 @@ else:
             continue
         filtered.append(p)
 
-    # ---------- 並び替え(※ 金額/回数/最終発注日は除外) ----------
+    # ---------- 並び替え ----------
     sort_map = {
         "最終更新（新しい順）": lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
         "最終更新（古い順）": lambda x: (_to_dt(x.get("_updated_raw") or x.get("updated")),),
@@ -366,19 +370,54 @@ else:
     }
     filtered.sort(key=key_fn, reverse=reverse)
 
-    # ---------- カード描画(1行=2列固定) ----------
-    if not filtered:
+    # =========================================
+    # 列スライド式「前へ / 次へ」(上部のみ表示)
+    # =========================================
+    ROWS, COLS = 2, 2           # 2行×2列 = 4枚
+    WINDOW = ROWS * COLS
+
+    # 現在の列オフセット（1列=縦2枚）
+    col_offset = int(st.session_state.card_col_offset)
+    start_idx = col_offset * ROWS  # ← 列の先頭アイテムのインデックス
+
+    # 範囲外になっていたらクランプ
+    if start_idx >= len(filtered) and len(filtered) > 0:
+        max_valid_offset = max(0, (len(filtered) - 1) // ROWS)
+        col_offset = min(col_offset, max_valid_offset)
+        st.session_state.card_col_offset = col_offset
+        start_idx = col_offset * ROWS
+
+    # ボタン活性条件
+    can_prev = (col_offset > 0)
+    can_next = ((col_offset + 1) * ROWS < len(filtered))
+
+    # 上部コントロール（※下部には出さない）
+    c1, c2, c3 = st.columns([1, 6, 1])
+    with c1:
+        if st.button("← 前へ", key="prev_top", disabled=not can_prev, use_container_width=True):
+            st.session_state.card_col_offset = max(0, col_offset - 1)
+            st.rerun()
+    with c2:
+        shown_from = 0 if len(filtered) == 0 else start_idx + 1
+        shown_to = min(start_idx + WINDOW, len(filtered))
+        st.caption(f"{len(filtered)}件中 {shown_from}–{shown_to} 件を表示（列スライド）")
+    with c3:
+        if st.button("次へ →", key="next_top", disabled=not can_next, use_container_width=True):
+            st.session_state.card_col_offset = col_offset + 1
+            st.rerun()
+
+    # ---------- カード描画（列優先 = column-major） ----------
+    if len(filtered) == 0 or start_idx >= len(filtered):
         st.info("表示できる案件がありません。検索条件やフィルタを見直してください。")
     else:
-        cols_per_row = 2  # ← 固定
-        rows = (len(filtered) + cols_per_row - 1) // cols_per_row
-
-        for r in range(rows):
-            cols = st.columns(cols_per_row)
-            for i, col in enumerate(cols):
-                idx = r * cols_per_row + i
+        # 列c（0..COLS-1）、行r（0..ROWS-1）の順に配置
+        # グローバルindex = start_idx + c*ROWS + r
+        for r in range(ROWS):
+            cols = st.columns(COLS)
+            for c, col in enumerate(cols):
+                idx = start_idx + c * ROWS + r
                 if idx >= len(filtered):
-                    break
+                    continue
                 p = filtered[idx]
                 with col:
                     with st.container(border=True):
@@ -389,10 +428,10 @@ else:
                                 unsafe_allow_html=True,
                             )
                         with h2:
-                            if st.button(
-                                "✏️", key=f"edit_{p['id']}", help="編集/削除", use_container_width=True, type="secondary"
-                            ):
+                            if st.button("✏️", key=f"edit_{p['id']}", help="編集/削除",
+                                         use_container_width=True, type="secondary"):
                                 open_edit_dialog(p)
+
                         st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
 
                         meta_info = []
@@ -402,7 +441,10 @@ else:
                         if p.get("transaction_count", 0) > 0:
                             meta_info.append(f"・取引履歴：{p['transaction_count']}件")
                             if p.get("total_amount", 0) > 0:
-                                meta_info.append(f"・総取引額：¥{p['total_amount']:,.0f}")
+                                try:
+                                    meta_info.append(f"・総取引額：¥{int(p['total_amount']):,}")
+                                except Exception:
+                                    pass
                             if p.get("last_order_date"):
                                 meta_info.append(f"・最終発注：{format_date(p['last_order_date'])}")
                         else:

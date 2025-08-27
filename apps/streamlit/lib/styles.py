@@ -14,7 +14,6 @@ import streamlit as st
 # 基本スタイル / スクリプト
 # =========================
 
-
 def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> str:
     """
     メインの共通スタイルを取得
@@ -25,6 +24,7 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
     """
     css = [
         "<style>",
+
         # ---- サイドバー/トグル:display は一切いじらない ----
         #   * Streamlit の initial_sidebar_state / ユーザー操作に任せる
         #   * 代わりにトグルを常に前面・左上に置いて見失わないようにする
@@ -34,26 +34,28 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "  z-index: 10000 !important;"
         "  opacity: 1 !important; pointer-events: auto !important;"
         "}",
+
         # サイドバー展開時、サイドバー内のトグル位置(保険的に)
         "section[data-testid='stSidebar'] [data-testid='collapsedControl'] {"
         "  position: sticky !important; top: 8px !important; left: 8px !important;"
         "}",
+
         # ---- ヘッダ領域 ----
         #  height:0 をやめて、最小高さ + 透明背景に(トグルが隠れない)
         "header[data-testid='stHeader'] {"
-        + (
-            "  min-height: 36px !important; height: 36px !important; "
-            "  background: transparent !important; box-shadow: none !important;"
-            if hide_header
-            else "  min-height: 48px !important; height: auto !important; "
-        )
+        + ("  min-height: 36px !important; height: 36px !important; "
+           "  background: transparent !important; box-shadow: none !important;"
+           if hide_header else
+           "  min-height: 48px !important; height: auto !important; ")
         + "}",
+
         # ---- 本文コンテナの余白(サイドバーとは独立に調整) ----
         "div[data-testid='stAppViewContainer'] .block-container {"
         "  padding-top: 0.75rem !important;"
         "  padding-bottom: 1.5rem !important;"
         "  max-width: 100% !important;"
         "}",
+
         # ---- container(border=True) をカード風に(.card 直下だけ)----
         ".card > div[data-testid='stVerticalBlockBorderWrapper'] {"
         "  border: 1px solid #E6E6E6 !important;"
@@ -67,6 +69,7 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "  min-width: 0 !important;"
         "  overflow: hidden !important;"
         "}",
+
         # ---- 古いDOMへのフォールバック(.card 直下だけ)----
         ".card > div[data-testid='stVerticalBlock'] {"
         "  border: 1px solid #E6E6E6 !important;"
@@ -79,8 +82,13 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "  min-width: 0 !important;"
         "  overflow: hidden !important;"
         "}",
+
         # ---- 長文で崩さない(カード内だけに限定)----
-        ".card * {  word-break: break-word !important;  overflow-wrap: anywhere !important;}",
+        ".card * {"
+        "  word-break: break-word !important;"
+        "  overflow-wrap: anywhere !important;"
+        "}",
+
         # ---- カード内のタイポ/タグ ----
         ".title {"
         "  font-weight: 900; font-size: 1.2rem; margin: 0 0 1px 0;"
@@ -93,6 +101,7 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
         "}",
         ".company { font-size: 1.05rem; margin: 0 0 4px 0; font-weight: 600; }",
         ".meta { font-size: 0.95rem; line-height: 1.6; margin: 0; }",
+
         # ---- サイドバー内の余白最適化(display は変更しない) ----
         "section[data-testid='stSidebar'] .block-container {"
         "  padding-top: 0.25rem !important; padding-bottom: 0.8rem !important;"
@@ -146,18 +155,15 @@ def apply_chat_scroll_script():
 # ページ固有スタイル(企業分析)
 # =========================
 
-
 def get_company_analysis_page_styles() -> str:
     return """
     <style>
     /* タイトル:負マージンを撤廃 */
     h1.company-analysis-title {
         font-size: 2.4rem !important;
-        margin-top: 0 !important;
+        margin-top: -3rem !important;
         margin-bottom: 0.75rem !important;
     }
-    /* 本文側コンテナの上余白(控えめに) */
-    div[data-testid="stAppViewContainer"] .block-container { padding-top: 0.75rem !important; }
 
     /* サイドバー:ロゴの白背景ラウンドボックス */
     .sidebar-logo-card {
@@ -193,7 +199,6 @@ def apply_company_analysis_page_styles():
 # =========================
 # ページ固有スタイル(案件一覧)
 # =========================
-
 
 def get_projects_list_page_styles() -> str:
     """
@@ -247,14 +252,13 @@ def apply_projects_list_page_styles():
 # ページ固有スタイル(スライド生成)
 # =========================
 
-
 def get_slide_generation_page_styles() -> str:
     """スライド生成ページ専用CSS(負マージン廃止)"""
     return """
     <style>
     h1.slide-generation-title {
         font-size: 2.4rem !important;
-        margin-top: 0 !important;
+        margin-top: -4rem !important;
         margin-bottom: 0.75rem !important;
     }
     /* LLM提案ビュー(text_area: disabled)の文字色を黒に */
@@ -273,7 +277,6 @@ def apply_slide_generation_page_styles():
 # =========================
 # HTML描画ヘルパー
 # =========================
-
 
 def render_sidebar_logo_card(image_path: Path | str):
     """

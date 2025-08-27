@@ -12,6 +12,8 @@ venv
 .DS_Store
 **/.DS_Store
 
+sqlite/app.db
+
 temp
 scripts
 .gitignore

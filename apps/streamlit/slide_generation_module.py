@@ -849,6 +849,94 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: l
         ],
     }
 
+# --- 提案保存ユーティリティ（既存 app.db を活用） ---
+import sqlite3, uuid, json as _json
+DB_PATH = PROJECT_ROOT / "data" / "sqlite" / "app.db"  # ← ここだけパス変更
+
+def _init_db_for_proposals():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS proposals(
+            id TEXT PRIMARY KEY,
+            project_item_id TEXT,
+            company TEXT NOT NULL,
+            meeting_notes TEXT,
+            overview TEXT,
+            created_at TEXT NOT NULL
+        )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS proposal_issues(
+            proposal_id TEXT NOT NULL,
+            idx INTEGER NOT NULL,
+            issue TEXT NOT NULL,
+            weight REAL,
+            keywords_json TEXT,
+            FOREIGN KEY(proposal_id) REFERENCES proposals(id)
+        )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS proposal_products(
+            proposal_id TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            product_id TEXT,
+            name TEXT,
+            category TEXT,
+            price TEXT,
+            reason TEXT,
+            overview TEXT,
+            score REAL,
+            source_csv TEXT,
+            image_url TEXT,
+            FOREIGN KEY(proposal_id) REFERENCES proposals(id)
+        )""")
+        conn.commit()
+
+def _save_proposal_to_db(
+    project_item_id: str | None,
+    company: str,
+    meeting_notes: str,
+    overview: str,
+    issues: list[dict[str, Any]],
+    products: list[dict[str, Any]],
+    created_at_iso: str
+) -> str:
+    """提案ひとまとまりを保存し、proposal_id を返す（既存 app.db に追記）。"""
+    _init_db_for_proposals()
+    pid = str(uuid.uuid4())
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO proposals(id, project_item_id, company, meeting_notes, overview, created_at) VALUES(?,?,?,?,?,?)",
+            (pid, project_item_id, company, meeting_notes, overview, created_at_iso)
+        )
+        # 課題のスナップショット
+        for i, it in enumerate(issues or []):
+            c.execute(
+                "INSERT INTO proposal_issues(proposal_id, idx, issue, weight, keywords_json) VALUES(?,?,?,?,?)",
+                (pid, i+1, it.get('issue',''), float(it.get('weight') or 0.0), _json.dumps(it.get('keywords') or [], ensure_ascii=False))
+            )
+        # 採用製品のスナップショット
+        for r, p in enumerate(products or []):
+            c.execute(
+                """INSERT INTO proposal_products(
+                    proposal_id, rank, product_id, name, category, price, reason, overview, score, source_csv, image_url
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    pid, r+1,
+                    str(p.get('id','')) or None,
+                    p.get('name',''),
+                    p.get('source_csv') or p.get('category',''),
+                    str(p.get('price','')),
+                    p.get('reason',''),
+                    p.get('overview',''),
+                    float(p.get('score') or 0.0),
+                    p.get('source_csv') or '',
+                    p.get('image_url') or ''
+                )
+            )
+        conn.commit()
+    return pid
+
+
+
 
 # =========================
 # メイン描画（フロント改修のみ）
@@ -891,53 +979,31 @@ def render_slide_generation_page():
         st.markdown("### 設定")
         st.text_input("企業名", value=company_internal, key="slide_company_input", disabled=True)
 
-        st.session_state.slide_top_k = st.number_input(
-            "提案件数",
-            min_value=3, max_value=20, value=st.session_state.slide_top_k, step=1,
-            key="slide_top_k_input",
-        )
+        # --- ここから“数字はすべて一覧選択型” & Session State 既定値のみ使用 ---
+        st.selectbox("提案件数", options=list(range(3, 21)), key="slide_top_k")
 
-        st.session_state.slide_history_reference_count = st.selectbox(
+        st.selectbox(
             "履歴参照件数（往復）",
             options=list(range(1, 11)),
-            index=max(0, st.session_state.slide_history_reference_count - 1),
-            key="slide_history_count_select",
+            key="slide_history_reference_count",
             help="企業分析のチャット履歴の直近N往復を文脈として使用",
         )
 
-        datasets = _list_product_datasets()
-        st.session_state.slide_products_dataset = st.selectbox(
+        st.selectbox(
             "商材データセット",
-            options=datasets,
-            index=datasets.index(st.session_state.slide_products_dataset) if st.session_state.slide_products_dataset in datasets else 0,
-            key="slide_products_dataset_select",
+            options=_list_product_datasets(),
+            key="slide_products_dataset",
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
 
         st.markdown("---")
         st.markdown("### AI設定")
         
-        st.session_state.slide_use_gpt_api = st.checkbox(
-            "GPT API使用",
-            value=st.session_state.slide_use_gpt_api,
-            key="slide_use_gpt_api_checkbox",
-            help="Azure OpenAI GPT-5-miniを使用して企業課題分析と製品情報要約を行います"
-        )
-        
-        st.session_state.slide_use_tavily_api = st.checkbox(
-            "TAVILY API使用",
-            value=st.session_state.slide_use_tavily_api,
-            key="slide_use_tavily_api_checkbox",
-            help="TAVILY APIを使用して製品情報のウェブ検索を行います"
-        )
-        
+        st.checkbox("GPT API使用", key="slide_use_gpt_api")
+        st.checkbox("TAVILY API使用", key="slide_use_tavily_api")
+
         if st.session_state.slide_use_tavily_api:
-            st.session_state.slide_tavily_uses = st.number_input(
-                "TAVILY API呼び出し回数（製品あたり）",
-                min_value=1, max_value=5, value=st.session_state.slide_tavily_uses, step=1,
-                key="slide_tavily_uses_input",
-                help="各製品に対してTAVILY APIを何回呼び出すかを指定します"
-            )
+            st.selectbox("TAVILY API呼び出し回数（製品あたり）", options=list(range(1, 6)), key="slide_tavily_uses")
 
         sidebar_clear = st.button("クリア", use_container_width=True, help="候補を画面内でクリア")
 
@@ -965,7 +1031,7 @@ def render_slide_generation_page():
         st.text_area(
             label="商談の詳細",
             key="slide_meeting_notes",
-            height=200,
+            height=154,
             label_visibility="collapsed",
             placeholder="例：来期の需要予測精度向上と在庫最適化。PoCから段階導入… など",
         )
@@ -1010,6 +1076,22 @@ def render_slide_generation_page():
                 ctx_for_view or "",
                 uploads_text_for_view or ""
             )
+        # （任意）候補検索直後に“ドラフト”保存
+        try:
+            proposal_id = _save_proposal_to_db(
+                project_item_id=item_id,
+                company=company_internal,
+                meeting_notes=st.session_state.slide_meeting_notes or "",
+                overview=st.session_state.slide_overview or "",
+                issues=st.session_state.analyzed_issues or [],
+                products=st.session_state.product_candidates or [],
+                created_at_iso=datetime.now().isoformat(timespec="seconds")
+            )
+            st.session_state["last_proposal_id"] = proposal_id
+            st.info(f"ドラフト提案を保存しました（ID: {proposal_id[:8]}…）")
+        except Exception as e:
+            st.warning(f"ドラフト保存に失敗しました: {e}")
+
 
     if sidebar_clear:
         st.session_state.product_candidates = []

@@ -33,11 +33,15 @@ otsuka_internship_teamA/
 │       └── lib/
 │           ├── api.py             # FastAPI通信ライブラリ
 │           ├── styles.py          # 共通スタイル定義
-│           └── company_analysis/  # 企業分析機能
-│               ├── config.py      # 設定管理（APIキー等）
-│               ├── data.py        # データ構造定義
-│               ├── llm.py         # LLM連携処理
-│               └── ui.py          # 企業分析UI
+│           ├── company_analysis/  # 企業分析機能
+│           │   ├── config.py      # 設定管理（APIキー等）
+│           │   ├── data.py        # データ構造定義
+│           │   ├── llm.py         # LLM連携処理
+│           │   └── ui.py          # 企業分析UI
+│           ├── ai_agent.py        # 🆕 AIエージェント（変数生成）
+│           ├── template_processor.py # 🆕 テンプレート処理
+│           ├── new_slide_generator.py # 🆕 新しいスライド生成器
+│           └── slide_generator.py # 従来のスライド生成器
 ├── data/
 │   ├── ddl/
 │   │   └── schema.sql             # データベーススキーマ
@@ -51,10 +55,13 @@ otsuka_internship_teamA/
 │   │   └── otsuka_logo.jpg       # ロゴ画像
 │   ├── templates/                 # テンプレートファイル
 │   │   └── proposal_template.pptx # 提案書テンプレート
+│   └── template/                  # 🆕 新しいテンプレートシステム
+│       └── proposal_template.pptx # PPTXテンプレート（変数置換対応）
 │   └── sqlite/
 │       └── app.db                 # SQLiteデータベース（Git追跡外）
 ├── scripts/                       # データ管理スクリプト
-│   └── check_db.py               # データベース内容確認ツール
+│   ├── check_db.py               # データベース内容確認ツール
+│   └── test_new_system.py        # 🆕 新しいシステムのテスト
 └── requirements.txt               # Python依存関係
 ```
 
@@ -155,6 +162,12 @@ python scripts/check_db.py --all
 ### 概要
 AIエージェントが企業情報、商談詳細、製品候補を基に自動的にプレゼンテーションPPTXを生成します。
 
+### 🆕 新しいテンプレートベースシステム
+- **テンプレート駆動**: `template/proposal_template.pptx`をベースに生成
+- **変数置換**: `{{VARIABLE_NAME}}`形式の変数を自動置換
+- **フォーマット保持**: 元のテンプレートの色、サイズ、フォントを完全保持
+- **AI駆動**: GPT-5-miniとTAVILY APIによる高度な内容生成
+
 ### 最近の修正
 - **NaN値処理**: 製品価格のNaN値を適切に処理し、「要お見積もり」として表示
 - **エラーハンドリング**: データ不整合時のフォールバック処理を追加
@@ -172,6 +185,12 @@ AIエージェントが企業情報、商談詳細、製品候補を基に自動
 - **製品情報検索**: TAVILY APIによる最新製品情報の取得
 - **自動スライド生成**: 構造化されたプレゼンテーションの自動作成
 - **ロゴ統合**: Otsukaロゴの自動配置（アスペクト比保持）
+
+### 🆕 新しいAIエージェント機能
+- **変数自動生成**: 18種類のプレゼンテーション変数をAIが自動生成
+- **テンプレート処理**: 既存PPTXテンプレートの高度な処理
+- **フォーマット保持**: 元のデザインを完全に保持した変数置換
+- **動的製品変数**: 製品数に応じて自動的に変数を生成
 
 ### スライド構成
 1. **タイトルスライド**: 案件名 + 企業名、作成日、ロゴ
@@ -192,3 +211,22 @@ AIエージェントが企業情報、商談詳細、製品候補を基に自動
 5. AI設定を調整
 6. 「生成」ボタンでプレゼンテーション作成
 7. ダウンロードボタンでPPTXファイルを取得
+
+## 📚 ドキュメント
+
+- `README.md` - プロジェクト概要・セットアップ手順
+- `SLIDE_GENERATION_GUIDE.md` - スライド生成機能の詳細ガイド
+- `NEW_SLIDE_SYSTEM_README.md` - 🆕 新しいAIエージェントシステムの詳細
+
+## 🧪 テスト
+
+### 新しいシステムのテスト
+```bash
+python scripts/test_new_system.py
+```
+
+このスクリプトは以下をテストします：
+- テンプレート情報の取得
+- 変数のプレビュー
+- AIエージェントの動作
+- プレゼンテーション生成（API使用なし）

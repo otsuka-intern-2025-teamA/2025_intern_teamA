@@ -8,10 +8,9 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 try:
     from .ai_agent import AIAgent
@@ -50,14 +49,14 @@ class NewSlideGenerator:
         company_name: str,
         meeting_notes: str,
         chat_history: str,
-        products: List[Dict[str, Any]],
+        products: list[dict[str, Any]],
         use_gpt: bool = True,
         use_tavily: bool = True,
         tavily_uses: int = 2,
     ) -> bytes:
         """プレゼンテーションPPTXの生成（テンプレートベース）"""
         
-        print(f"🎯 プレゼンテーション生成開始")
+        print("🎯 プレゼンテーション生成開始")
         print(f"企業名: {company_name}")
         print(f"製品数: {len(products)}")
         print(f"GPT API使用: {use_gpt}")
@@ -107,7 +106,7 @@ class NewSlideGenerator:
             print(f"❌ プレゼンテーション生成でエラーが発生: {e}")
             raise
 
-    def get_template_info(self) -> Dict[str, Any]:
+    def get_template_info(self) -> dict[str, Any]:
         """テンプレートの情報を取得"""
         return self.template_processor.get_template_info()
 
@@ -117,14 +116,14 @@ class NewSlideGenerator:
         company_name: str,
         meeting_notes: str,
         chat_history: str,
-        products: List[Dict[str, Any]],
+        products: list[dict[str, Any]],
         use_gpt: bool = True,
         use_tavily: bool = True,
         tavily_uses: int = 2,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """変数のプレビュー（API呼び出しなし）"""
         
-        print(f"🔍 変数プレビュー生成中...")
+        print("🔍 変数プレビュー生成中...")
         print(f"  企業名: {company_name}")
         print(f"  製品数: {len(products)}")
         

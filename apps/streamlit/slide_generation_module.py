@@ -10,33 +10,35 @@
 # ---------------------------------------------------------
 
 from __future__ import annotations
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-import os, re, json
+
+import json
+import os
+import re
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-import streamlit as st
-import pandas as pd
 import numpy as np
-
-# 共通スタイル
-from lib.styles import (
-    apply_main_styles,
-    apply_title_styles,
-    apply_company_analysis_page_styles,   # サイドバー圧縮/ロゴカード/下寄せCSSを流用
-    apply_slide_generation_page_styles,
-    render_sidebar_logo_card,
-    render_slide_generation_title,        # タイトル描画（h1.slide-generation-title）
-)
+import pandas as pd
 
 # APIクライアント（企業分析のチャット履歴取得に使用）
-from lib.api import get_api_client, api_available, APIError
+from lib.api import api_available, get_api_client
 
 # スライド生成モジュール
-from lib.slide_generator import SlideGenerator
+# 共通スタイル
+from lib.styles import (
+    apply_company_analysis_page_styles,  # サイドバー圧縮/ロゴカード/下寄せCSSを流用
+    apply_main_styles,
+    apply_slide_generation_page_styles,
+    apply_title_styles,
+    render_sidebar_logo_card,
+    render_slide_generation_title,  # タイトル描画（h1.slide-generation-title）
+)
 
 # LLM クライアント（Azure / OpenAI どちらでもOK）
-from openai import OpenAI, AzureOpenAI
+from openai import AzureOpenAI, OpenAI
+
+import streamlit as st
 
 # 画像/データパス
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -46,17 +48,7 @@ PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
 # --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
-from lib.api import api_available, get_api_client
 from lib.new_slide_generator import NewSlideGenerator
-from lib.new_slide_generator import NewSlideGenerator
-from lib.styles import (
-    apply_company_analysis_page_styles,
-    apply_main_styles,
-    apply_slide_generation_page_styles,
-    apply_title_styles,
-    render_sidebar_logo_card,
-    render_slide_generation_title,
-)
 
 
 # =========================
@@ -141,7 +133,7 @@ def _fmt_price(val) -> str:
 # =========================
 # データセット/コンテキスト収集
 # =========================
-def _list_product_datasets() -> List[str]:
+def _list_product_datasets() -> list[str]:
     """productsディレクトリ配下のサブフォルダ名を列挙（Autoを先頭）"""
     if not PRODUCTS_DIR.exists():
         return ["Auto"]
@@ -152,7 +144,7 @@ def _list_product_datasets() -> List[str]:
     return ds
 
 
-def _gather_messages_context(item_id: Optional[str], history_n: int) -> str:
+def _gather_messages_context(item_id: str | None, history_n: int) -> str:
     """企業分析の直近N往復（=2N発言）をまとめて文字列化"""
     if not (item_id and api_available()):
         return ""
@@ -177,7 +169,7 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
     期待カラム: id(無ければ生成), name, category, price, description, tags
              ＋ image_url/image/thumbnail（任意）, source_csv（追加）
     """
-    frames: List[pd.DataFrame] = []
+    frames: list[pd.DataFrame] = []
     if not PRODUCTS_DIR.exists():
         return pd.DataFrame()
 
@@ -217,7 +209,7 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
 # =========================
 # 参考資料（アップロードファイル）テキスト抽出【追加】
 # =========================
-def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000) -> str:
+def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000) -> str:
     """
     アップロード資料からテキストを抽出して連結して返す（ロバストに動く簡易実装）。
     - PDF: pypdf
@@ -230,7 +222,7 @@ def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000
     if not uploaded_files:
         return ""
 
-    chunks: List[str] = []
+    chunks: list[str] = []
     used_chars = 0
 
     def _append(text: str):
@@ -261,8 +253,9 @@ def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000
 
             if lower.endswith(".pdf"):
                 try:
-                    from pypdf import PdfReader  # pip install pypdf
                     import io
+
+                    from pypdf import PdfReader  # pip install pypdf
                     reader = PdfReader(io.BytesIO(data))
                     page_limit = min(len(reader.pages), 30)
                     texts = []
@@ -278,6 +271,7 @@ def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000
             elif lower.endswith(".docx"):
                 try:
                     import io
+
                     from docx import Document  # pip install python-docx
                     doc = Document(io.BytesIO(data))
                     paras = [p.text for p in doc.paragraphs if p.text]
@@ -288,6 +282,7 @@ def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000
             elif lower.endswith(".pptx"):
                 try:
                     import io
+
                     from pptx import Presentation  # pip install python-pptx
                     prs = Presentation(io.BytesIO(data))
                     slide_texts = []
@@ -340,7 +335,7 @@ def _extract_text_from_uploads(uploaded_files: List[Any], max_chars: int = 12000
 # =========================
 # 検索フォールバック（簡易スコアリング）
 # =========================
-def _simple_tokenize(text: str) -> List[str]:
+def _simple_tokenize(text: str) -> list[str]:
     text = str(text or "").lower()
     text = re.sub(r"[^a-z0-9\u3040-\u30ff\u4e00-\u9fff]+", " ", text)
     toks = text.split()
@@ -352,7 +347,7 @@ def _fallback_rank_products(
     messages_ctx: str,
     products_df: pd.DataFrame,
     top_pool: int
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """商談メモ＋履歴の語句一致で素朴にスコアリング → 上位 top_pool を返す"""
     if products_df.empty:
         return []
@@ -368,7 +363,7 @@ def _fallback_rank_products(
             str(row.get("tags") or ""),
         ]).lower()
 
-    scored: List[Tuple[float, Dict[str, Any]]] = []
+    scored: list[tuple[float, dict[str, Any]]] = []
     for _, row in products_df.iterrows():
         t = _row_text(row)
         score = 0.0
@@ -398,7 +393,7 @@ def _fallback_rank_products(
 # =========================
 # LLM で Top-K 選抜＋理由生成 / 80字要約
 # =========================
-def _extract_json(s: str) -> Dict[str, Any]:
+def _extract_json(s: str) -> dict[str, Any]:
     s = (s or "").strip()
     if not s:
         return {}
@@ -417,7 +412,7 @@ def _extract_json(s: str) -> Dict[str, Any]:
     return {}
 
 
-def _llm_pick_products(pool: List[Dict[str, Any]], top_k: int, company: str, notes: str, ctx: str, issues: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+def _llm_pick_products(pool: list[dict[str, Any]], top_k: int, company: str, notes: str, ctx: str, issues: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """
     カタログ（pool）から LLM で Top-K を選抜し、短い理由と信頼度を付与。
     issues が与えられれば、課題IDとの対応付けと根拠を求める。
@@ -509,7 +504,7 @@ def _llm_pick_products(pool: List[Dict[str, Any]], top_k: int, company: str, not
     if not recs:
         return []
     pool_map = {str(p["id"]): p for p in pool}
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for r in recs:
         pid = str(r.get("id", "")).strip()
         if not pid or pid not in pool_map:
@@ -532,7 +527,7 @@ def _llm_pick_products(pool: List[Dict[str, Any]], top_k: int, company: str, not
     return out
 
 
-def _summarize_overviews_llm(cands: List[Dict[str, Any]]) -> None:
+def _summarize_overviews_llm(cands: list[dict[str, Any]]) -> None:
     """各製品の概要を 80字以内で LLM 要約（失敗時は説明を短縮）"""
     items = []
     has_any = False
@@ -595,7 +590,7 @@ def _summarize_overviews_llm(cands: List[Dict[str, Any]]) -> None:
             c["overview"] = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
 
 
-def _resolve_product_image_src(rec: Dict[str, Any]) -> Optional[str]:
+def _resolve_product_image_src(rec: dict[str, Any]) -> str | None:
     for key in ("image_url", "image", "thumbnail"):
         v = rec.get(key)
         if not v:
@@ -614,13 +609,13 @@ def _resolve_product_image_src(rec: Dict[str, Any]) -> Optional[str]:
 # 追加: 課題分析・埋め込み索引・類似検索
 # =========================
 
-def _analyze_pain_points(notes: str, messages_ctx: str, uploads_text: str = "") -> List[Dict[str, Any]]:
+def _analyze_pain_points(notes: str, messages_ctx: str, uploads_text: str = "") -> list[dict[str, Any]]:
     """
     商談メモ・会話文脈・アップロード資料（抽出テキスト）から課題を抽出。
     返り値: [{"issue": str, "weight": float, "keywords": List[str]}, ...]
     フォールバック時は汎用的な課題を返す。
     """
-    issues: List[Dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
     try:
         client, chat_model = _get_chat_client()
         sys = "あなたはB2B提案の課題分析アシスタントです。日本語でJSONのみ出力してください。"
@@ -682,7 +677,7 @@ def _normalize_concat_row(row: pd.Series) -> str:
     return s
 
 
-def _embed_texts(client, texts: List[str], embed_model: str, is_azure: bool) -> np.ndarray:
+def _embed_texts(client, texts: list[str], embed_model: str, is_azure: bool) -> np.ndarray:
     """
     Embedding API を呼び出しベクトルを返す。失敗時は例外を送出。
     """
@@ -695,7 +690,7 @@ def _embed_texts(client, texts: List[str], embed_model: str, is_azure: bool) -> 
         raise RuntimeError(f"embedding failed: {e}")
 
 
-def _build_products_index(dataset: str, df: pd.DataFrame, client, embed_model: str, is_azure: bool) -> Dict[str, Any]:
+def _build_products_index(dataset: str, df: pd.DataFrame, client, embed_model: str, is_azure: bool) -> dict[str, Any]:
     """
     products DataFrame から埋め込み索引用インデックスを構築しキャッシュする。
     Cache key: dataset_name + length + embed_model
@@ -723,7 +718,7 @@ def _build_products_index(dataset: str, df: pd.DataFrame, client, embed_model: s
     return index
 
 
-def _retrieve_by_issues(index: Dict[str, Any], issues: List[Dict[str, Any]], client, embed_model: str, is_azure: bool, top_pool: int) -> List[Dict[str, Any]]:
+def _retrieve_by_issues(index: dict[str, Any], issues: list[dict[str, Any]], client, embed_model: str, is_azure: bool, top_pool: int) -> list[dict[str, Any]]:
     """
     課題の重み付きベクトルで類似検索し、上位 top_pool 件を返す。
     index["vecs"] が None または TF-IDF の場合は空リストを返す。
@@ -773,13 +768,13 @@ def _retrieve_by_issues(index: Dict[str, Any], issues: List[Dict[str, Any]], cli
 # =========================
 def _search_product_candidates(
     company: str,
-    item_id: Optional[str],
+    item_id: str | None,
     meeting_notes: str,
     top_k: int,
     history_n: int,
     dataset: str,
-    uploaded_files: List[Any],   # ここを活用（資料テキスト抽出）
-) -> List[Dict[str, Any]]:
+    uploaded_files: list[Any],   # ここを活用（資料テキスト抽出）
+) -> list[dict[str, Any]]:
     # 企業分析の文脈
     ctx = _gather_messages_context(item_id, history_n)
 
@@ -827,7 +822,7 @@ def _search_product_candidates(
 # =========================
 # ドラフト作成
 # =========================
-def _make_outline_preview(company: str, meeting_notes: str, selected_products: List[Dict[str, Any]], overview: str) -> Dict[str, Any]:
+def _make_outline_preview(company: str, meeting_notes: str, selected_products: list[dict[str, Any]], overview: str) -> dict[str, Any]:
     return {
         "title": f"{company} 向け提案資料（ドラフト）",
         "overview": overview,
@@ -1117,7 +1112,7 @@ def render_slide_generation_page():
             # プレゼンテーション生成
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
-                    print(f"🚀 Streamlit: プレゼンテーション生成開始")
+                    print("🚀 Streamlit: プレゼンテーション生成開始")
                     print(f"  企業名: {company_internal}")
                     print(f"  製品数: {len(selected)}")
                     print(f"  GPT API: {st.session_state.slide_use_gpt_api}")
@@ -1139,10 +1134,8 @@ def render_slide_generation_page():
                     print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
                         project_name=company_internal,  # 案件名として企業名を使用
-                        project_name=company_internal,  # 案件名として企業名を使用
                         company_name=company_internal,
                         meeting_notes=st.session_state.slide_meeting_notes or "",
-                        chat_history=chat_history,
                         chat_history=chat_history,
                         products=selected,
                         use_tavily=st.session_state.slide_use_tavily_api,

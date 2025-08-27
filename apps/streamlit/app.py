@@ -6,7 +6,10 @@ from pathlib import Path
 import streamlit as st
 
 # 画像ファイルのパス定義
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+if "__file__" in globals():
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+else:
+    PROJECT_ROOT = Path.cwd().parents[1]
 LOGO_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_logo.jpg"
 ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 

@@ -1,244 +1,330 @@
-# template_processor.py
-# ---------------------------------------------------------
-# PPTXテンプレート処理モジュール
-# - テンプレートPPTXのコピー作成
-# - 変数の置換（フォーマット保持）
-# - プレゼンテーションの生成
-# ---------------------------------------------------------
+"""
+テンプレート処理モジュール - PowerPointテンプレートの変数置換
+元のテキストの色、サイズ、フォントを保持しながら変数を置換
+"""
 
-from __future__ import annotations
-
+import os
 import shutil
 from pathlib import Path
-from typing import Any
-
+from typing import Dict, Any, Optional
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.dml.color import RGBColor
 
 
 class TemplateProcessor:
-    """PPTXテンプレート処理クラス"""
-
-    def __init__(self, template_path: Path):
-        """初期化"""
-        self.template_path = template_path
-        if not template_path.exists():
+    """PowerPointテンプレート処理クラス"""
+    
+    def __init__(self, template_path: str):
+        """
+        テンプレート処理クラスの初期化
+        
+        Args:
+            template_path: テンプレートファイルのパス
+        """
+        self.template_path = Path(template_path)
+        if not self.template_path.exists():
             raise FileNotFoundError(f"テンプレートファイルが見つかりません: {template_path}")
-
-    def create_presentation_from_template(
+    
+    def process_template(
         self, 
-        variables: dict[str, str], 
-        output_path: Path
-    ) -> Path:
-        """テンプレートからプレゼンテーションを生成"""
+        variables: Dict[str, str], 
+        output_path: str,
+        preserve_formatting: bool = True
+    ) -> str:
+        """
+        テンプレートを処理して変数を置換
         
-        print(f"📄 テンプレート処理開始: {self.template_path}")
-        print(f"📤 出力先: {output_path}")
-        print(f"🔧 変数数: {len(variables)}")
-        
+        Args:
+            variables: 置換する変数の辞書
+            output_path: 出力ファイルのパス
+            preserve_formatting: フォーマット保持フラグ
+            
+        Returns:
+            出力ファイルのパス
+        """
         # テンプレートをコピー
+        output_path = Path(output_path)
         shutil.copy2(self.template_path, output_path)
-        print("✅ テンプレートコピー完了")
         
-        # 変数を置換
-        print("🔄 変数置換中...")
-        self._replace_variables_in_pptx(output_path, variables)
-        
-        return output_path
-
-    def _replace_variables_in_pptx(self, pptx_path: Path, variables: dict[str, str]):
-        """PPTXファイル内の変数を置換"""
-        
-        prs = Presentation(pptx_path)
-        total_replacements = 0
+        # プレゼンテーションを開く
+        prs = Presentation(output_path)
         
         # 各スライドで変数を置換
+        total_replacements = 0
         for slide in prs.slides:
-            total_replacements += self._replace_variables_in_shapes(
-                slide.shapes, variables
+            total_replacements += self._process_slide(
+                slide, variables, preserve_formatting
             )
         
-        # 変更を保存
-        prs.save(str(pptx_path))
-        print(f"✅ 変数置換完了: {total_replacements}箇所")
-        print(f"📁 ファイル保存完了: {pptx_path}")
-
-    def _replace_variables_in_shapes(self, shapes, variables: dict[str, str]) -> int:
-        """シェイプ内の変数を置換（再帰的に処理）"""
+        # 保存
+        prs.save(output_path)
         
-        replacement_count = 0
+        print(f"テンプレート処理完了: {total_replacements}件の置換を実行")
+        return str(output_path)
+    
+    def _process_slide(self, slide, variables: Dict[str, str], preserve_formatting: bool) -> int:
+        """スライド内の変数を処理"""
+        replacements = 0
         
-        for shape in shapes:
-            # グループ化されたシェイプを再帰処理
-            if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
-                replacement_count += self._replace_variables_in_shapes(
-                    shape.shapes, variables
+        # スライド内の各シェイプを処理
+        for shape in slide.shapes:
+            replacements += self._process_shape(
+                shape, variables, preserve_formatting
+            )
+        
+        return replacements
+    
+    def _process_shape(self, shape, variables: Dict[str, str], preserve_formatting: bool) -> int:
+        """シェイプ内の変数を処理"""
+        replacements = 0
+        
+        # グループシェイプの場合は再帰処理
+        if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+            for sub_shape in shape.shapes:
+                replacements += self._process_shape(
+                    sub_shape, variables, preserve_formatting
                 )
-            
-            # テキストフレーム内の変数を置換
-            if hasattr(shape, "has_text_frame") and shape.has_text_frame:
-                replacement_count += self._replace_variables_in_text_frame(
-                    shape.text_frame, variables
-                )
-            
-            # テーブル内の変数を置換
-            if hasattr(shape, "has_table") and shape.has_table:
-                replacement_count += self._replace_variables_in_table(
-                    shape.table, variables
-                )
+            return replacements
         
-        return replacement_count
-
-    def _replace_variables_in_text_frame(self, text_frame, variables: dict[str, str]) -> int:
-        """テキストフレーム内の変数を置換（フォーマット保持）"""
+        # テキストフレームの処理
+        if hasattr(shape, "has_text_frame") and shape.has_text_frame:
+            replacements += self._process_text_frame(
+                shape.text_frame, variables, preserve_formatting
+            )
         
+        # テーブルの処理
+        if hasattr(shape, "has_table") and shape.has_table:
+            replacements += self._process_table(
+                shape.table, variables, preserve_formatting
+            )
+        
+        return replacements
+    
+    def _process_text_frame(self, text_frame, variables: Dict[str, str], preserve_formatting: bool) -> int:
+        """テキストフレーム内の変数を処理"""
         if not text_frame or not text_frame.text:
             return 0
         
-        replacement_count = 0
+        replacements = 0
+        original_text = text_frame.text
         
-        # 各変数を置換
+        # 各変数をチェック
         for placeholder, value in variables.items():
-            # 値がNoneまたは空文字列の場合はスキップ
-            if not value or str(value).strip() == "":
+            # None値と空文字列のチェック
+            if value is None or value.strip() == "":
+                print(f"⚠️ 警告: 変数 {placeholder} の値が空です。スキップします。")
                 continue
                 
-            if placeholder in text_frame.text:
-                # 段落ごとに処理
-                for paragraph in text_frame.paragraphs:
-                    if placeholder in paragraph.text:
-                        # 段落内の各ラン（テキストの一部）を処理
+            if placeholder in original_text:
+                # フォーマット保持の場合は特別な処理
+                if preserve_formatting:
+                    replacements += self._replace_with_formatting(
+                        text_frame, placeholder, value
+                    )
+                else:
+                    # 単純な置換
+                    text_frame.text = original_text.replace(placeholder, value)
+                    replacements += 1
+                break  # 一度に一つの変数のみ処理
+        
+        return replacements
+    
+    def _replace_with_formatting(self, text_frame, placeholder: str, value: str) -> int:
+        """
+        フォーマットを保持しながら変数を置換
+        元のテキストの色、サイズ、フォントを保持
+        """
+        if not text_frame.text or placeholder not in text_frame.text:
+            return 0
+        
+        # None値と空文字列のチェック
+        if value is None or value.strip() == "":
+            print(f"⚠️ 警告: 変数 {placeholder} の値が空です。スキップします。")
+            return 0
+        
+        # 元のフォーマット情報を保存
+        original_formats = []
+        for paragraph in text_frame.paragraphs:
+            for run in paragraph.runs:
+                if placeholder in run.text:
+                    # フォーマット情報を保存
+                    format_info = {
+                        'font_name': run.font.name,
+                        'font_size': run.font.size,
+                        'font_bold': run.font.bold,
+                        'font_italic': run.font.italic,
+                        'font_color': run.font.color.rgb if (run.font.color and hasattr(run.font.color, 'rgb') and run.font.color.rgb) else None,
+                        'text': run.text
+                    }
+                    original_formats.append(format_info)
+        
+        # テキストを置換
+        text_frame.text = text_frame.text.replace(placeholder, value)
+        
+        # フォーマットを復元
+        if original_formats:
+            # 新しいテキストの長さに合わせてフォーマットを調整
+            new_text = text_frame.text
+            current_pos = 0
+            
+            for format_info in original_formats:
+                # 置換されたテキストの位置を特定
+                if format_info['text'] in new_text:
+                    # 該当する部分にフォーマットを適用
+                    for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
-                            if placeholder in run.text:
-                                # フォーマット情報を保存
-                                original_font = run.font
-                                font_info = {
-                                    "name": original_font.name,
-                                    "size": original_font.size,
-                                    "bold": original_font.bold,
-                                    "italic": original_font.italic,
-                                    "underline": original_font.underline,
-                                    "color": original_font.color.rgb if hasattr(original_font.color, 'rgb') and original_font.color.rgb else None,
-                                }
-                                
-                                # テキストを置換
-                                run.text = run.text.replace(placeholder, value)
-                                
-                                # フォーマットを復元
-                                if font_info["name"]:
-                                    run.font.name = font_info["name"]
-                                if font_info["size"]:
-                                    run.font.size = font_info["size"]
-                                if font_info["bold"] is not None:
-                                    run.font.bold = font_info["bold"]
-                                if font_info["italic"] is not None:
-                                    run.font.italic = font_info["italic"]
-                                if font_info["underline"] is not None:
-                                    run.font.underline = font_info["underline"]
-                                if font_info["color"] and hasattr(run.font.color, 'rgb'):
-                                    run.font.color.rgb = font_info["color"]
-                                
-                                replacement_count += 1
-                                break  # この段落での置換は完了
+                            if current_pos < len(new_text):
+                                # フォーマットを適用
+                                if format_info['font_name']:
+                                    run.font.name = format_info['font_name']
+                                if format_info['font_size']:
+                                    run.font.size = format_info['font_size']
+                                if format_info['font_bold'] is not None:
+                                    run.font.bold = format_info['font_bold']
+                                if format_info['font_italic'] is not None:
+                                    run.font.italic = format_info['font_italic']
+                                if format_info['font_color']:
+                                    run.font.color.rgb = format_info['font_color']
+                                current_pos += len(run.text)
         
-        return replacement_count
-
-    def _replace_variables_in_table(self, table, variables: dict[str, str]) -> int:
-        """テーブル内の変数を置換"""
-        
-        replacement_count = 0
+        return 1
+    
+    def _process_table(self, table, variables: Dict[str, str], preserve_formatting: bool) -> int:
+        """テーブル内の変数を処理"""
+        replacements = 0
         
         for row in table.rows:
             for cell in row.cells:
-                replacement_count += self._replace_variables_in_text_frame(
-                    cell.text_frame, variables
-                )
+                if cell.text_frame:
+                    replacements += self._process_text_frame(
+                        cell.text_frame, variables, preserve_formatting
+                    )
         
-        return replacement_count
-
-    def _extract_format_info(self, text_frame) -> list:
-        """テキストフレームのフォーマット情報を抽出"""
-        
-        format_info = []
-        
-        for paragraph in text_frame.paragraphs:
-            para_info = {
-                "alignment": paragraph.alignment,
-                "runs": []
+        return replacements
+    
+    def get_template_info(self) -> Dict[str, Any]:
+        """テンプレートの情報を取得"""
+        try:
+            prs = Presentation(self.template_path)
+            
+            info = {
+                "file_path": str(self.template_path),
+                "file_size": self.template_path.stat().st_size,
+                "slide_count": len(prs.slides),
+                "slides": []
             }
             
-            for run in paragraph.runs:
-                run_info = {
-                    "font_name": run.font.name,
-                    "font_size": run.font.size,
-                    "font_bold": run.font.bold,
-                    "font_italic": run.font.italic,
-                    "font_underline": run.font.underline,
-                    "font_color": run.font.color.rgb if hasattr(run.font.color, 'rgb') and run.font.color.rgb else None,
+            # 各スライドの情報を収集
+            for i, slide in enumerate(prs.slides):
+                slide_info = {
+                    "slide_number": i + 1,
+                    "shapes_count": len(slide.shapes),
+                    "text_placeholders": []
                 }
-                para_info["runs"].append(run_info)
-            
-            format_info.append(para_info)
-        
-        return format_info
-
-    def _restore_format_info(self, text_frame, format_info: list):
-        """テキストフレームのフォーマット情報を復元"""
-        
-        for i, (para_info, paragraph) in enumerate(zip(format_info, text_frame.paragraphs, strict=False)):
-            if i < len(text_frame.paragraphs):
-                # 段落のアライメントを復元
-                paragraph.alignment = para_info["alignment"]
                 
-                # 各ラン（テキストの一部）のフォーマットを復元
-                for j, run_info in enumerate(para_info["runs"]):
-                    if j < len(paragraph.runs):
-                        run = paragraph.runs[j]
-                        
-                        # フォント名
-                        if run_info["font_name"]:
-                            run.font.name = run_info["font_name"]
-                        
-                        # フォントサイズ
-                        if run_info["font_size"]:
-                            run.font.size = run_info["font_size"]
-                        
-                        # フォントスタイル
-                        if run_info["font_bold"] is not None:
-                            run.font.bold = run_info["font_bold"]
-                        if run_info["font_italic"] is not None:
-                            run.font.italic = run_info["font_italic"]
-                        if run_info["font_underline"] is not None:
-                            run.font.underline = run_info["font_underline"]
-                        
-                        # フォントカラー
-                        if run_info["font_color"] and hasattr(run.font.color, 'rgb'):
-                            run.font.color.rgb = run_info["font_color"]
-
-    def get_template_info(self) -> dict[str, Any]:
-        """テンプレートの情報を取得"""
-        
-        prs = Presentation(self.template_path)
-        
-        info = {
-            "slide_count": len(prs.slides),
-            "slides": []
+                # テキストプレースホルダーを検索
+                for shape in slide.shapes:
+                    if hasattr(shape, "has_text_frame") and shape.has_text_frame:
+                        if shape.text_frame.text:
+                            # 変数プレースホルダーを検索
+                            import re
+                            placeholders = re.findall(r'\{\{[^}]+\}\}', shape.text_frame.text)
+                            if placeholders:
+                                slide_info["text_placeholders"].extend(placeholders)
+                
+                info["slides"].append(slide_info)
+            
+            return info
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "file_path": str(self.template_path)
+            }
+    
+    def validate_variables(self, variables: Dict[str, str]) -> Dict[str, Any]:
+        """変数の妥当性を検証"""
+        validation_result = {
+            "valid": True,
+            "errors": [],
+            "warnings": [],
+            "unused_variables": [],
+            "missing_placeholders": []
         }
         
-        for i, slide in enumerate(prs.slides):
-            slide_info = {
-                "slide_number": i + 1,
-                "title": slide.shapes.title.text if slide.shapes.title else "タイトルなし",
-                "shapes_count": len(slide.shapes),
-                "text_placeholders": []
-            }
+        try:
+            prs = Presentation(self.template_path)
             
-            # テキストプレースホルダーを検索
-            for shape in slide.shapes:
-                if hasattr(shape, "has_text_frame") and shape.has_text_frame:
-                    if shape.text_frame.text:
-                        slide_info["text_placeholders"].append(shape.text_frame.text[:100])
+            # テンプレート内のプレースホルダーを収集
+            template_placeholders = set()
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "has_text_frame") and shape.has_text_frame:
+                        if shape.text_frame.text:
+                            import re
+                            placeholders = re.findall(r'\{\{[^}]+\}\}', shape.text_frame.text)
+                            template_placeholders.update(placeholders)
             
-            info["slides"].append(slide_info)
+            # 提供された変数をチェック
+            provided_variables = set(variables.keys())
+            
+            # 未使用の変数
+            unused = provided_variables - template_placeholders
+            if unused:
+                validation_result["warnings"].append(f"未使用の変数: {list(unused)}")
+                validation_result["unused_variables"] = list(unused)
+            
+            # 不足しているプレースホルダー
+            missing = template_placeholders - provided_variables
+            if missing:
+                validation_result["errors"].append(f"不足している変数: {list(missing)}")
+                validation_result["missing_placeholders"] = list(missing)
+                validation_result["valid"] = False
+            
+            # 空の値のチェック
+            empty_values = [k for k, v in variables.items() if not v or v.strip() == ""]
+            if empty_values:
+                validation_result["warnings"].append(f"空の値を持つ変数: {empty_values}")
+            
+        except Exception as e:
+            validation_result["valid"] = False
+            validation_result["errors"].append(f"テンプレート読み込みエラー: {str(e)}")
         
-        return info
+        return validation_result
+
+
+def create_temp_template(template_path: str, output_dir: str = None) -> str:
+    """
+    テンプレートの一時コピーを作成
+    
+    Args:
+        template_path: 元のテンプレートパス
+        output_dir: 出力ディレクトリ（Noneの場合は一時ディレクトリ）
+        
+    Returns:
+        一時テンプレートのパス
+    """
+    import tempfile
+    
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp()
+    
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    template_path = Path(template_path)
+    temp_template = output_dir / f"temp_{template_path.name}"
+    
+    shutil.copy2(template_path, temp_template)
+    
+    return str(temp_template)
+
+
+def cleanup_temp_template(temp_path: str):
+    """一時テンプレートを削除"""
+    try:
+        os.remove(temp_path)
+        print(f"一時テンプレートを削除しました: {temp_path}")
+    except Exception as e:
+        print(f"一時テンプレート削除エラー: {e}")

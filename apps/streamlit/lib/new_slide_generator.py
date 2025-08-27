@@ -1,173 +1,316 @@
-# new_slide_generator.py
-# ---------------------------------------------------------
-# 新しいスライド生成モジュール（テンプレートベース）
-# - AIエージェントによる変数生成
-# - テンプレートPPTXの処理
-# - フォーマット保持による変数置換
-# ---------------------------------------------------------
+"""
+新スライド生成システム - メインクラス
+AIエージェントとテンプレート処理を統合してプレゼンテーションを生成
+"""
 
-from __future__ import annotations
-
-from datetime import datetime
+import os
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
+from datetime import datetime
 
-try:
-    from .ai_agent import AIAgent
-    from .template_processor import TemplateProcessor
-except ImportError:
-    # テスト用の絶対インポート
-    from ai_agent import AIAgent
-    from template_processor import TemplateProcessor
+from .ai_agent import AIAgent
+from .template_processor import TemplateProcessor, create_temp_template, cleanup_temp_template
 
 
 class NewSlideGenerator:
-    """新しいスライド生成クラス（テンプレートベース）"""
-
-    def __init__(self):
-        """初期化"""
-        # プロジェクトルートとパス設定
-        self.project_root = Path(__file__).parent.parent.parent.parent
-        self.template_path = self.project_root / "template" / "proposal_template.pptx"
-        self.output_dir = self.project_root / "temp" / "generated_presentations"
+    """新スライド生成システムのメインクラス"""
+    
+    def __init__(self, template_path: str = None):
+        """
+        スライド生成システムの初期化
         
-        # 出力ディレクトリの作成
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        Args:
+            template_path: テンプレートファイルのパス（Noneの場合はデフォルトパス）
+        """
+        # テンプレートパスの設定
+        if template_path is None:
+            # プロジェクトルートからの相対パス
+            project_root = Path(__file__).parent.parent.parent
+            template_path = project_root / "template" / "proposal_template.pptx"
+            
+            # パスの存在確認とデバッグ
+            print(f"🔍 テンプレートパス確認:")
+            print(f"  現在のファイル: {__file__}")
+            print(f"  プロジェクトルート: {project_root}")
+            print(f"  テンプレートパス: {template_path}")
+            print(f"  テンプレート存在: {template_path.exists()}")
+            
+            # 代替パスの試行（現在のディレクトリからの相対パス）
+            if not template_path.exists():
+                alt_path = Path("template") / "proposal_template.pptx"
+                if alt_path.exists():
+                    template_path = alt_path
+                    print(f"✅ 代替パスを使用: {template_path}")
+                else:
+                    print(f"⚠️ 代替パスも存在しません: {alt_path}")
+        
+        self.template_path = Path(template_path)
+        if not self.template_path.exists():
+            raise FileNotFoundError(f"テンプレートファイルが見つかりません: {template_path}")
         
         # AIエージェントの初期化
         self.ai_agent = AIAgent()
         
-        # テンプレートプロセッサの初期化
-        if not self.template_path.exists():
-            raise FileNotFoundError(f"テンプレートファイルが見つかりません: {self.template_path}")
+        # テンプレート処理クラスの初期化
+        self.template_processor = TemplateProcessor(str(self.template_path))
         
-        self.template_processor = TemplateProcessor(self.template_path)
-
+        print(f"✅ NewSlideGenerator初期化完了: {self.template_path}")
+    
     def create_presentation(
         self,
         project_name: str,
         company_name: str,
-        meeting_notes: str,
-        chat_history: str,
-        products: list[dict[str, Any]],
-        use_gpt: bool = True,
+        meeting_notes: str = "",
+        chat_history: str = "",
+        products: List[Dict[str, Any]] = None,
+        proposal_issues: List[Dict[str, Any]] = None,
         use_tavily: bool = True,
-        tavily_uses: int = 2,
+        use_gpt: bool = True,
+        tavily_uses: int = 1
     ) -> bytes:
-        """プレゼンテーションPPTXの生成（テンプレートベース）"""
+        """
+        プレゼンテーションを生成
         
-        print("🎯 プレゼンテーション生成開始")
-        print(f"企業名: {company_name}")
-        print(f"製品数: {len(products)}")
-        print(f"GPT API使用: {use_gpt}")
-        print(f"TAVILY API使用: {use_tavily}")
+        Args:
+            project_name: プロジェクト名
+            company_name: 企業名
+            meeting_notes: 商談メモ
+            chat_history: チャット履歴
+            products: 製品リスト
+            proposal_issues: 提案課題
+            use_tavily: TAVILY API使用フラグ
+            use_gpt: GPT API使用フラグ
+            tavily_uses: 製品あたりのTAVILY API呼び出し回数
+            
+        Returns:
+            生成されたプレゼンテーションのバイトデータ
+        """
+        print(f"🚀 プレゼンテーション生成開始")
+        print(f"  プロジェクト名: {project_name}")
+        print(f"  企業名: {company_name}")
+        print(f"  製品数: {len(products) if products else 0}")
+        print(f"  GPT API: {use_gpt}")
+        print(f"  TAVILY API: {use_tavily}")
+        print(f"  TAVILY使用回数: {tavily_uses}")
         
         try:
-            # 1. AIエージェントによる変数生成
-            print("🤖 AIエージェントによる変数生成中...")
+            # 1. AIエージェントで変数を生成
+            print("🤖 AIエージェントで変数を生成中...")
             variables = self.ai_agent.generate_presentation_variables(
                 project_name=project_name,
                 company_name=company_name,
                 meeting_notes=meeting_notes,
                 chat_history=chat_history,
-                products=products,
-                use_gpt=use_gpt,
+                products=products or [],
+                proposal_issues=proposal_issues or [],
                 use_tavily=use_tavily,
-                tavily_uses=tavily_uses,
+                use_gpt=use_gpt,
+                tavily_uses=tavily_uses
             )
             
-            print(f"✅ 変数生成完了: {len(variables)}個の変数")
-            for key, value in variables.items():
-                print(f"  {key}: {value[:50]}{'...' if len(value) > 50 else ''}")
+            print(f"✅ 変数生成完了: {len(variables)}件")
             
-            # 2. テンプレートからプレゼンテーション生成
-            print("📄 テンプレート処理中...")
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"{company_name}_提案書_{timestamp}.pptx"
-            output_path = self.output_dir / output_filename
+            # 2. 変数の妥当性を検証
+            print("🔍 変数の妥当性を検証中...")
+            validation = self.template_processor.validate_variables(variables)
             
-            self.template_processor.create_presentation_from_template(
+            if not validation["valid"]:
+                print(f"⚠️ 変数検証でエラーが発生: {validation['errors']}")
+                if validation["missing_placeholders"]:
+                    print(f"  不足しているプレースホルダー: {validation['missing_placeholders']}")
+            
+            if validation["warnings"]:
+                print(f"⚠️ 警告: {validation['warnings']}")
+            
+            # 3. 一時テンプレートを作成
+            print("📋 一時テンプレートを作成中...")
+            temp_dir = tempfile.mkdtemp()
+            temp_template_path = create_temp_template(str(self.template_path), temp_dir)
+            
+            # 4. テンプレートを処理
+            print("⚙️ テンプレート処理中...")
+            output_path = Path(temp_dir) / f"output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+            
+            processed_path = self.template_processor.process_template(
                 variables=variables,
-                output_path=output_path
+                output_path=str(output_path),
+                preserve_formatting=True
             )
             
-            print(f"✅ プレゼンテーション生成完了: {output_path}")
-            
-            # 3. バイトデータとして返す
-            with open(output_path, "rb") as f:
+            # 5. 結果を読み込み
+            print("📖 結果を読み込み中...")
+            with open(processed_path, 'rb') as f:
                 pptx_data = f.read()
             
-            # 4. 一時ファイルを削除
-            output_path.unlink()
+            print(f"✅ プレゼンテーション生成完了: {len(pptx_data)} バイト")
+            
+            # 6. 一時ファイルをクリーンアップ
+            try:
+                cleanup_temp_template(temp_template_path)
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"⚠️ 一時ファイルクリーンアップエラー: {e}")
             
             return pptx_data
             
         except Exception as e:
             print(f"❌ プレゼンテーション生成でエラーが発生: {e}")
             raise
-
-    def get_template_info(self) -> dict[str, Any]:
-        """テンプレートの情報を取得"""
+    
+    def get_template_info(self) -> Dict[str, Any]:
+        """テンプレートの詳細情報を取得"""
         return self.template_processor.get_template_info()
-
+    
     def preview_variables(
         self,
         project_name: str,
         company_name: str,
-        meeting_notes: str,
-        chat_history: str,
-        products: list[dict[str, Any]],
-        use_gpt: bool = True,
+        meeting_notes: str = "",
+        chat_history: str = "",
+        products: List[Dict[str, Any]] = None,
+        proposal_issues: List[Dict[str, Any]] = None,
         use_tavily: bool = True,
-        tavily_uses: int = 2,
-    ) -> dict[str, str]:
-        """変数のプレビュー（API呼び出しなし）"""
+        use_gpt: bool = True,
+        tavily_uses: int = 1
+    ) -> Dict[str, Any]:
+        """
+        生成される変数のプレビューを表示
         
-        print("🔍 変数プレビュー生成中...")
-        print(f"  企業名: {company_name}")
-        print(f"  製品数: {len(products)}")
-        
-        variables = {}
-        
-        # 基本変数
-        print("  📝 基本変数設定中...")
-        variables["{{PROJECT_NAME}}"] = project_name or "案件名未設定"
-        variables["{{COMPANY_NAME}}"] = company_name or "企業名未設定"
-        
-        # 製品変数
-        print(f"  📦 製品変数設定中... (製品数: {len(products)})")
-        for i, product in enumerate(products):
-            print(f"    📦 製品{i+1}: {product.get('name', '製品名未設定')}")
-            prefix = f"{{{{PRODUCTS[{i}]."
-            variables[f"{prefix}NAME}}"] = product.get("name", "製品名未設定")
-            variables[f"{prefix}CATEGORY}}"] = product.get("category", "カテゴリ未設定")
-            variables[f"{prefix}PRICE}}"] = self._format_price(product.get("price"))
-            variables[f"{prefix}REASON}}"] = "あいうえお"  # デフォルト値
-        
-        # その他の変数
-        print("  🔧 その他の変数設定中...")
-        variables["{{CHAT_HISTORY_SUMMARY}}"] = "あいうえお"
-        variables["{{PROBLEM_HYPOTHESES}}"] = "あいうえお"
-        variables["{{PROPOSAL_SUMMARY}}"] = "あいうえお"
-        variables["{{EXPECTED_IMPACTS}}"] = "あいうえお"
-        variables["{{TOTAL_COSTS}}"] = "あいうえお"
-        variables["{{SCHEDULE_PLAN}}"] = "あいうえお"
-        variables["{{NEXT_ACTIONS}}"] = "あいうえお"
-        variables["{{AGENDA_BULLETS}}"] = "あいうえお"
-        
-        print(f"  ✅ 変数プレビュー完了: {len(variables)}個の変数")
-        return variables
-
-    def _format_price(self, price) -> str:
-        """価格のフォーマット"""
-        if price is None or str(price).lower() in ["nan", "none", ""]:
-            return "要お見積もり"
-        
+        Args:
+            同様のパラメータ
+            
+        Returns:
+            変数の辞書と検証結果
+        """
         try:
-            price_float = float(price)
-            if price_float > 0:
-                return f"${int(price_float):,}"
-            else:
-                return "要お見積もり"
-        except (ValueError, TypeError):
-            return "要お見積もり"
+            # 変数を生成
+            variables = self.ai_agent.generate_presentation_variables(
+                project_name=project_name,
+                company_name=company_name,
+                meeting_notes=meeting_notes,
+                chat_history=chat_history,
+                products=products or [],
+                proposal_issues=proposal_issues or [],
+                use_tavily=use_tavily,
+                use_gpt=use_gpt,
+                tavily_uses=tavily_uses
+            )
+            
+            # 検証
+            validation = self.template_processor.validate_variables(variables)
+            
+            return {
+                "variables": variables,
+                "validation": validation,
+                "template_info": self.get_template_info()
+            }
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "variables": {},
+                "validation": {"valid": False, "errors": [str(e)]},
+                "template_info": {}
+            }
+    
+    def generate_with_custom_variables(
+        self,
+        custom_variables: Dict[str, str],
+        preserve_formatting: bool = True
+    ) -> bytes:
+        """
+        カスタム変数を使用してプレゼンテーションを生成
+        
+        Args:
+            custom_variables: カスタム変数の辞書
+            preserve_formatting: フォーマット保持フラグ
+            
+        Returns:
+            生成されたプレゼンテーションのバイトデータ
+        """
+        try:
+            # 変数の妥当性を検証
+            validation = self.template_processor.validate_variables(custom_variables)
+            
+            if not validation["valid"]:
+                print(f"⚠️ 変数検証でエラーが発生: {validation['errors']}")
+            
+            # 一時テンプレートを作成
+            temp_dir = tempfile.mkdtemp()
+            temp_template_path = create_temp_template(str(self.template_path), temp_dir)
+            
+            # テンプレートを処理
+            output_path = Path(temp_dir) / f"custom_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+            
+            processed_path = self.template_processor.process_template(
+                variables=custom_variables,
+                output_path=str(output_path),
+                preserve_formatting=preserve_formatting
+            )
+            
+            # 結果を読み込み
+            with open(processed_path, 'rb') as f:
+                pptx_data = f.read()
+            
+            # 一時ファイルをクリーンアップ
+            try:
+                cleanup_temp_template(temp_template_path)
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"⚠️ 一時ファイルクリーンアップエラー: {e}")
+            
+            return pptx_data
+            
+        except Exception as e:
+            print(f"❌ カスタム変数でのプレゼンテーション生成でエラーが発生: {e}")
+            raise
+    
+    def get_supported_variables(self) -> List[str]:
+        """サポートされている変数のリストを取得"""
+        template_info = self.get_template_info()
+        if "error" in template_info:
+            return []
+        
+        variables = set()
+        for slide in template_info.get("slides", []):
+            variables.update(slide.get("text_placeholders", []))
+        
+        return sorted(list(variables))
+    
+    def test_template_processing(self) -> Dict[str, Any]:
+        """テンプレート処理のテスト実行"""
+        try:
+            # テスト用の変数
+            test_variables = {
+                "{{PROJECT_NAME}}": "テストプロジェクト",
+                "{{COMPANY_NAME}}": "テスト企業",
+                "{{AGENDA_BULLETS}}": "• テスト項目1\n• テスト項目2",
+                "{{CHAT_HISTORY_SUMMARY}}": "テスト用のチャット履歴サマリー",
+                "{{PROBLEM_HYPOTHESES}}": "テスト用の課題仮説",
+                "{{PROPOSAL_SUMMARY}}": "テスト用の提案サマリー",
+                "{{EXPECTED_IMPACTS}}": "テスト用の期待効果",
+                "{{TOTAL_COSTS}}": "$1,000.00",
+                "{{SCHEDULE_PLAN}}": "テスト用のスケジュール計画",
+                "{{NEXT_ACTIONS}}": "テスト用の次のアクション"
+            }
+            
+            # 検証
+            validation = self.template_processor.validate_variables(test_variables)
+            
+            return {
+                "success": True,
+                "validation": validation,
+                "template_info": self.get_template_info(),
+                "supported_variables": self.get_supported_variables()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "template_info": {},
+                "supported_variables": []
+            }

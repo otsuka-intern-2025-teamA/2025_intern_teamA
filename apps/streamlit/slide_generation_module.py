@@ -21,7 +21,7 @@ PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
 # --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
 from lib.api import api_available, get_api_client
-from lib.slide_generator import SlideGenerator
+from lib.new_slide_generator import NewSlideGenerator
 from lib.styles import (
     apply_company_analysis_page_styles,
     apply_main_styles,
@@ -586,6 +586,16 @@ def render_slide_generation_page():
 
     st.divider()
 
+    # テンプレート情報の表示
+    if st.button("📋 テンプレート情報を表示", help="使用するテンプレートの詳細情報を表示します"):
+        try:
+            generator = NewSlideGenerator()
+            template_info = generator.get_template_info()
+            
+            st.json(template_info)
+        except Exception as e:
+            st.error(f"テンプレート情報の取得でエラーが発生しました: {e}")
+
     st.subheader("2. スライド生成")
     row_l, row_r = st.columns([8, 2], vertical_alignment="center")
     with row_l:
@@ -615,15 +625,39 @@ def render_slide_generation_page():
 
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
-                    generator = SlideGenerator()
+                    print(f"🚀 Streamlit: プレゼンテーション生成開始")
+                    print(f"  企業名: {company_internal}")
+                    print(f"  製品数: {len(selected)}")
+                    print(f"  GPT API: {st.session_state.slide_use_gpt_api}")
+                    print(f"  TAVILY API: {st.session_state.slide_use_tavily_api}")
+                    print(f"  TAVILY使用回数: {st.session_state.slide_tavily_uses}")
+                    
+                    # チャット履歴の取得
+                    print("📚 チャット履歴取得中...")
+                    chat_history = _gather_messages_context(
+                        item_id, 
+                        st.session_state.slide_history_reference_count
+                    )
+                    print(f"  チャット履歴長: {len(chat_history)}文字")
+                    
+                    print("🤖 NewSlideGenerator初期化中...")
+                    generator = NewSlideGenerator()
+                    print("✅ NewSlideGenerator初期化完了")
+                    
+                    print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
+                        project_name=company_internal,  # 案件名として企業名を使用
                         company_name=company_internal,
                         meeting_notes=st.session_state.slide_meeting_notes or "",
+                        chat_history=chat_history,
                         products=selected,
-                        use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,
+                        use_tavily=st.session_state.slide_use_tavily_api,
                         tavily_uses=st.session_state.slide_tavily_uses
                     )
+                    print("✅ プレゼンテーション生成完了")
+                    print(f"  生成されたデータサイズ: {len(pptx_data)} バイト")
+                    
                     st.success("プレゼンテーションが生成されました！")
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"{company_internal}_提案書_{timestamp}.pptx"
@@ -636,6 +670,7 @@ def render_slide_generation_page():
                         type="primary"
                     )
                 except Exception as e:
+                    print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")
 

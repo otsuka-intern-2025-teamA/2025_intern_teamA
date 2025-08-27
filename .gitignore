@@ -13,7 +13,7 @@ venv
 **/.DS_Store
 
 temp
-
+scripts
 .gitignore
 
 template/

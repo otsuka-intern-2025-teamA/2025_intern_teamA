@@ -176,16 +176,13 @@ def render_company_analysis_page():
             "企業名", value=default_company, key="company_input", placeholder="例）大塚商会、NTTデータ など"
         )
 
-        use_web_search = st.checkbox(
-            "Web検索を使用",
-            value=True,
-            key="use_web_search_checkbox",
+        use_web_search = st.toggle(
+            "Web検索を使用", value=True, key="use_web_search_toggle",
             help=("オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\nオフ：ユーザー入力のみをもとに分析"),
         )
-
-        show_history = st.checkbox(
-            "過去の取引履歴を表示", value=False, key="show_history_checkbox",
-            help="チェックを入れると、対象企業の過去取引履歴を表示します。"
+        show_history = st.toggle(
+            "過去の取引履歴を表示", value=False, key="show_history_toggle",
+            help="チェックを入れると、対象企業の過去取引履歴を表示します。",
         )
 
         # 「総参照URL件数」=「生成クエリ数」

@@ -45,36 +45,38 @@ def generate_tavily_queries(
     sales_objective: str | None = None,
     audience: str | None = None,
 ) -> list[str]:
+    """
+    ちょうど max_queries 個の検索クエリを返す（不足分は自動補完）。
+    - UC を System 先頭に前置
+    - JSON {"queries": [...]} を強制
+    - 再現性のため temperature を下げる
+    """
     s = get_settings()
     client = get_client()
+    model_name = "gpt-5-mini" if s.use_azure else s.default_model
 
-    if s.use_azure:
-        model_name = "gpt-5-mini"
-        if not model_name:
-            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
-    else:
-        model_name = s.default_model
-
+    # LLM への明示指示：必ず "ちょうど" N 件
     sys = (
         "あなたはWebリサーチに最適な検索クエリを作る専門家です。"
-        "与えられた会社名と質問から、重複しない 3〜5 個の短い検索クエリを作ってください。"
-        "Tavily等の一般Web検索を想定し、次を心がけてください："
-        " - 名詞中心で簡潔（10語以内）、余計な助詞は省略"
-        " - 日本語と英語の混在も可（固有名詞＋英語の一般語彙）"
-        " - 年/期間など具体化（例：2024, 直近1年, market share, product launch）"
-        " - 会社名は必ず1つ以上のクエリに含める"
-        " - 同義語や関連語（issues, risks, challenges, roadmap, partnership, compliance など）をばらして出す"
-        " - 特定の媒体に偏らない（site: 指定は基本避ける）"
+        f"与えられた会社名と質問から、重複しない ちょうど {max_queries} 個 の短い検索クエリを作ってください。"
+        "一般Web検索（Tavily/Bing等）を想定し、次を心がけてください："
+        " - 名詞中心で簡潔（10語以内）"
+        " - 日本語と英語の混在を許容（固有名詞＋一般語彙）"
+        " - 年/期間を具体化（例：2024, FY2024, 2024-Q4, market share）"
+        " - 会社名は複数のクエリに含める（少なくとも半数）"
+        " - 同義語や関連語（issues, risks, roadmap, partnership, compliance など）を分散"
+        " - 必要に応じて site: 指定を使ってよい（IR/EDINET/go.jp/PR/LinkedIn 等）"
         "出力は JSON のみ、キーは queries（文字列配列）だけ。"
+        f'例: {{"queries": ["{company} 有価証券報告書 2024", "{company} 中期経営計画 DX 2025", "..."]}}'
     )
     usr = (
         f"会社名: {company}\n"
         f"ユーザー入力/意図: {user_input}\n"
-        f"最大クエリ数: {max_queries}\n"
-        'フォーマット: {"queries": ["..."]}'
+        f"必要なクエリ数: {max_queries}\n"
+        'フォーマット: {"queries": ["..."]}（配列長は必ず上記の件数に一致させる）'
     )
 
-    # ▼ Universal Context を最初の System として前置
+    # UC を最初の System として前置
     messages = _prepend_uc_messages(
         company,
         base_messages=[
@@ -85,44 +87,78 @@ def generate_tavily_queries(
         audience=audience,
     )
 
+    queries: list[str] = []
     try:
         resp = client.chat.completions.create(
             model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
+            temperature=0.2,
         )
         content = resp.choices[0].message.content or "{}"
         data = json.loads(content)
-        queries = data.get("queries", [])
+        queries = data.get("queries", []) or []
     except Exception:
-        # 失敗時フォールバック:最低限のクエリ
         queries = []
 
-    # 後処理:空・重複を除去、上限数で切る
-    cleaned = []
-    seen = set()
+    # 正規化（空/重複/トリム）
+    cleaned: list[str] = []
+    seen: set[str] = set()
     for q in queries:
         q = (q or "").strip()
         if not q:
             continue
-        if q.lower() in seen:
+        key = q.lower()
+        if key in seen:
             continue
-        seen.add(q.lower())
+        seen.add(key)
         cleaned.append(q)
-        if len(cleaned) >= max_queries:
-            break
 
-    # それでも空なら素朴に作る
-    if not cleaned:
-        base = (user_input or "").strip()
-        if base:
-            cleaned = [f"{company} {base}", f"{company} overview", f"{company} recent news"]
-        else:
-            cleaned = [f"{company} overview", f"{company} recent news", f"{company} competitors"]
+    # ----- 不足分は営業向け“定番スロット”で自動補完 → ちょうど N 件に -----
+    def _auto_fill(company: str, intent: str, need: int) -> list[str]:
+        base = (intent or "overview").strip()
+        # 優先ソースを含むテンプレを多めに用意（site: は検索エンジン側で無視されても無害）
+        slots = [
+            f"{company} 決算短信 2024 OR 2025",
+            f"{company} 有価証券報告書 site:disclosure.edinet-fsa.go.jp",
+            f"{company} 中期経営計画 DX",
+            f"{company} 役員 組織図",
+            f"{company} 人事 異動 2024",
+            f"{company} 採用 募集職種 OR 採用情報",
+            f"{company} LinkedIn",
+            f"{company} 業務提携 OR 資本業務提携 OR M&A",
+            f"{company} プレスリリース site:prtimes.jp",
+            f"{company} 規制 動向 site:go.jp",
+            f"{company} 導入事例 OR 事例",
+            f"{company} {base} market share",
+            f"{company} 競合 比較 2024",
+        ]
+        out = []
+        for cand in slots:
+            if len(out) >= need:
+                break
+            if cand.lower() in seen:
+                continue
+            seen.add(cand.lower())
+            out.append(cand)
+        # それでも足りなければ素朴に埋める
+        while len(out) < need:
+            extra = f"{company} {base} extra-{len(out)+1}"
+            if extra.lower() in seen:
+                break
+            seen.add(extra.lower())
+            out.append(extra)
+        return out
 
-    print("=== Cleaned queries (final) ===")
-    print(cleaned)
+    if len(cleaned) < max_queries:
+        cleaned.extend(_auto_fill(company, user_input, max_queries - len(cleaned)))
+
+    # 多すぎたら切り詰め
+    if len(cleaned) > max_queries:
+        cleaned = cleaned[:max_queries]
+
     return cleaned
+
 
 
 def company_briefing_with_web_search(

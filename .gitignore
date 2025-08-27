@@ -13,6 +13,9 @@ venv
 **/.DS_Store
 
 data/sqlite/app.db
+data/sqlite/app.db-shm
+data/sqlite/app.db-wal
+
 
 temp
 scripts

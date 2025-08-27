@@ -183,6 +183,11 @@ def render_company_analysis_page():
             help=("オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\nオフ：ユーザー入力のみをもとに分析"),
         )
 
+        show_history = st.checkbox(
+            "過去の取引履歴を表示", value=False, key="show_history_checkbox",
+            help="チェックを入れると、対象企業の過去取引履歴を表示します。"
+        )
+
         # 「総参照URL件数」=「生成クエリ数」
         top_k = st.selectbox(
             "総参照URL件数（= クエリ数）",
@@ -361,6 +366,22 @@ def render_company_analysis_page():
                     status_placeholder.empty()
                     if assistant_text:
                         final_output_placeholder.markdown(assistant_text)
+            
+            if show_history:
+                import pandas as pd
+                history_path = PROJECT_ROOT / "data" / "csv" / "products" / "history.csv"
+                target_company = (company or "").strip() or default_company
+
+                if target_company:
+                    df_history = pd.read_csv(history_path)
+                    filtered_history = df_history[df_history["business_partners"].str.contains(target_company, na=False, case=False)]
+                    if not filtered_history.empty:
+                        st.subheader(f"{target_company} の取引履歴")
+                        st.table(filtered_history)
+                    else:
+                        st.info(f"{target_company} の取引履歴は見つかりませんでした。")
+                else:
+                    st.info("企業名が指定されていません。")
 
         except Exception as e:
             try:

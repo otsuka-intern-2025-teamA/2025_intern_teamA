@@ -3,7 +3,8 @@
 # スライド作成ページ（サイドバー追加版 × カードUI）
 # - サイドバー：ロゴ／案件一覧へ戻る（左下固定）／企業名／提案件数／履歴参照件数／商材データセット選択／クリア
 # - 本文：上段ヘッダ（左＝見出し／右＝候補取得ボタン）、
-#          左＝商談詳細＆参考資料アップ、右＝候補カード（画像・理由・80字概要）、
+#          1段目＝商談詳細（大）＆参考資料（横並び）、
+#          2段目＝左：課題分析（自動）／右：候補カード
 #          下段＝生成とドラフトJSON
 # - 生成ロジック：CSV→粗選定→LLMでTop-K選抜→LLMで80字要約（失敗時は短縮）
 # ---------------------------------------------------------
@@ -44,6 +45,18 @@ ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
+# --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
+from lib.api import api_available, get_api_client
+from lib.new_slide_generator import NewSlideGenerator
+from lib.styles import (
+    apply_company_analysis_page_styles,
+    apply_main_styles,
+    apply_slide_generation_page_styles,
+    apply_title_styles,
+    render_sidebar_logo_card,
+    render_slide_generation_title,
+)
+
 
 # =========================
 # セッション初期化
@@ -65,6 +78,8 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("slide_tavily_uses", 2)              # 製品あたりのTAVILY API呼び出し回数
     # 埋め込み検索用キャッシュ
     ss.setdefault("_emb_cache", {})
+    # 表示用：課題分析結果（UIで見せるだけ。選定ロジックは従来通り）
+    ss.setdefault("analyzed_issues", [])
 
 
 # =========================
@@ -840,10 +855,10 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: L
 
 
 # =========================
-# メイン描画
+# メイン描画（フロント改修のみ）
 # =========================
 def render_slide_generation_page():
-    """スライド作成ページ（右ペイン＝候補カード表示）"""
+    """スライド作成ページ（フロント配置を変更：上段＝商談詳細＆資料、下段＝課題分析＆候補カード）"""
     _ensure_session_defaults()
 
     try:
@@ -947,20 +962,18 @@ def render_slide_generation_page():
     with head_r:
         search_btn = st.button("候補を取得", use_container_width=True)
 
-    # ====================== 1. 商品提案（左右2ペイン） ======================
-    left, right = st.columns([5, 7], gap="large")
-
-    # ---- 左：商談詳細 + 参考資料
-    with left:
+    # ====================== 上段：商談詳細（大）＆参考資料（横並び） ======================
+    top_l, top_r = st.columns([3, 2], gap="large")  # 商談詳細を大きめに
+    with top_l:
         st.markdown("**● 商談の詳細**")
         st.text_area(
             label="商談の詳細",
             key="slide_meeting_notes",
-            height=160,
+            height=200,
             label_visibility="collapsed",
             placeholder="例：来期の需要予測精度向上と在庫最適化。PoCから段階導入… など",
         )
-
+    with top_r:
         st.markdown("**● 参考資料**")
         uploads = st.file_uploader(
             label="参考資料（任意）",
@@ -976,32 +989,58 @@ def render_slide_generation_page():
         elif st.session_state.uploaded_files_store:
             st.caption(f"前回アップロード済み: {len(st.session_state.uploaded_files_store)} ファイル")
 
-    # ---- 右：候補カード
-    with right:
+    # 「候補を取得」押下時：従来の候補検索（バックロジックは変更なし）＋ UI表示用の課題分析結果を計算
+    if search_btn:
+        if not company_internal.strip():
+            st.error("企業が選択されていません。案件一覧から企業を選んでください。")
+        else:
+            with st.spinner("候補を検索中…"):
+                candidates = _search_product_candidates(
+                    company=company_internal,
+                    item_id=item_id,
+                    meeting_notes=st.session_state.slide_meeting_notes or "",
+                    top_k=int(st.session_state.slide_top_k),
+                    history_n=int(st.session_state.slide_history_reference_count),
+                    dataset=st.session_state.slide_products_dataset,
+                    uploaded_files=st.session_state.uploaded_files_store,
+                )
+            st.session_state.product_candidates = candidates
+
+            # 表示用：課題分析（※候補選定ロジックには影響しない）
+            ctx_for_view = _gather_messages_context(item_id, int(st.session_state.slide_history_reference_count))
+            uploads_text_for_view = _extract_text_from_uploads(st.session_state.uploaded_files_store) if st.session_state.uploaded_files_store else ""
+            st.session_state.analyzed_issues = _analyze_pain_points(
+                st.session_state.slide_meeting_notes or "",
+                ctx_for_view or "",
+                uploads_text_for_view or ""
+            )
+
+    if sidebar_clear:
+        st.session_state.product_candidates = []
+        st.session_state.analyzed_issues = []
+        st.info("候補と課題分析表示をクリアしました。")
+
+    st.divider()
+
+    # ====================== 下段：左＝課題分析／右＝候補カード ======================
+    bottom_l, bottom_r = st.columns([5, 7], gap="large")
+
+    with bottom_l:
+        st.markdown("**● 課題分析（自動）**")
+        issues = st.session_state.get("analyzed_issues") or []
+        if not issues:
+            st.caption("『候補を取得』を押すと、商談メモ・履歴・参考資料から課題を自動抽出して表示します。")
+        else:
+            for i, it in enumerate(issues, start=1):
+                with st.container(border=True):
+                    st.markdown(f"**{i}. {it.get('issue','—')}**")
+                    st.caption(f"重み: {it.get('weight',0):.2f}")
+                    kws = it.get("keywords") or []
+                    if kws:
+                        st.markdown("キーワード: " + " / ".join(kws))
+
+    with bottom_r:
         st.markdown("**● 候補（カード表示）**")
-
-        # 「候補を取得」クリックで：候補検索 → 出力保存
-        if search_btn:
-            if not company_internal.strip():
-                st.error("企業が選択されていません。案件一覧から企業を選んでください。")
-            else:
-                with st.spinner("候補を検索中…"):
-                    candidates = _search_product_candidates(
-                        company=company_internal,
-                        item_id=item_id,
-                        meeting_notes=st.session_state.slide_meeting_notes or "",
-                        top_k=int(st.session_state.slide_top_k),
-                        history_n=int(st.session_state.slide_history_reference_count),
-                        dataset=st.session_state.slide_products_dataset,
-                        uploaded_files=st.session_state.uploaded_files_store,
-                    )
-                st.session_state.product_candidates = candidates
-
-        if sidebar_clear:
-            st.session_state.product_candidates = []
-            st.info("候補をクリアしました。")
-
-        # カード描画
         recs = st.session_state.product_candidates or []
         if not recs:
             st.info("候補がありません。『候補を取得』を押してください。")
@@ -1036,6 +1075,15 @@ def render_slide_generation_page():
     st.divider()
 
     # ====================== 2. スライド生成 ======================
+    # テンプレート情報の表示
+    if st.button("📋 テンプレート情報を表示", help="使用するテンプレートの詳細情報を表示します"):
+        try:
+            generator = NewSlideGenerator()
+            template_info = generator.get_template_info()
+            st.json(template_info)
+        except Exception as e:
+            st.error(f"テンプレート情報の取得でエラーが発生しました: {e}")
+
     st.subheader("2. スライド生成")
 
     row_l, row_r = st.columns([8, 2], vertical_alignment="center")
@@ -1068,10 +1116,31 @@ def render_slide_generation_page():
             # プレゼンテーション生成
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
-                    generator = SlideGenerator()
+                    print(f"🚀 Streamlit: プレゼンテーション生成開始")
+                    print(f"  企業名: {company_internal}")
+                    print(f"  製品数: {len(selected)}")
+                    print(f"  GPT API: {st.session_state.slide_use_gpt_api}")
+                    print(f"  TAVILY API: {st.session_state.slide_use_tavily_api}")
+                    print(f"  TAVILY使用回数: {st.session_state.slide_tavily_uses}")
+                    
+                    # チャット履歴の取得
+                    print("📚 チャット履歴取得中...")
+                    chat_history = _gather_messages_context(
+                        item_id, 
+                        st.session_state.slide_history_reference_count
+                    )
+                    print(f"  チャット履歴長: {len(chat_history)}文字")
+                    
+                    print("🤖 NewSlideGenerator初期化中...")
+                    generator = NewSlideGenerator()
+                    print("✅ NewSlideGenerator初期化完了")
+                    
+                    print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
+                        project_name=company_internal,  # 案件名として企業名を使用
                         company_name=company_internal,
                         meeting_notes=st.session_state.slide_meeting_notes or "",
+                        chat_history=chat_history,
                         products=selected,
                         use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,
@@ -1079,6 +1148,9 @@ def render_slide_generation_page():
                     )
                     
                     # ダウンロードボタンの表示
+                    print("✅ プレゼンテーション生成完了")
+                    print(f"  生成されたデータサイズ: {len(pptx_data)} バイト")
+                    
                     st.success("プレゼンテーションが生成されました！")
                     
                     # ファイル名の生成
@@ -1095,6 +1167,7 @@ def render_slide_generation_page():
                     )
                     
                 except Exception as e:
+                    print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")
 

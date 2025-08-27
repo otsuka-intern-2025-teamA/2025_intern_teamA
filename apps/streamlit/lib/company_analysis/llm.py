@@ -1,6 +1,7 @@
-# llm.py
 import json
 
+# ▼ 追加：Universal Context を常時前置する
+from apps.shared.prompting.universal_context import build_uc_for_company_analysis_full
 from openai import AzureOpenAI, OpenAI
 
 from .config import get_settings
@@ -18,8 +19,32 @@ def get_client():
     return OpenAI(api_key=s.openai_api_key)
 
 
+def _prepend_uc_messages(company: str, base_messages: list[dict], *,
+                         sales_objective: str | None = None,
+                         audience: str | None = None) -> list[dict]:
+    """
+    Universal Context（営業ドクトリン／4層フレーム／情報源／アクティベーション＋ガードレール）を
+    System 先頭に 1 件だけ差し込む。出力フォーマットは縛らない。
+    """
+    uc = build_uc_for_company_analysis_full(
+        company,
+        sales_objective=sales_objective,
+        audience=audience,
+    )
+    if uc and uc.strip():
+        return [{"role": "system", "content": uc}] + base_messages
+    return base_messages
+
+
 # 自然言語クエリを生成
-def generate_tavily_queries(company: str, user_input: str = "", max_queries: int = 5) -> list[str]:
+def generate_tavily_queries(
+    company: str,
+    user_input: str = "",
+    max_queries: int = 5,
+    *,
+    sales_objective: str | None = None,
+    audience: str | None = None,
+) -> list[str]:
     s = get_settings()
     client = get_client()
 
@@ -49,10 +74,21 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
         'フォーマット: {"queries": ["..."]}'
     )
 
+    # ▼ Universal Context を最初の System として前置
+    messages = _prepend_uc_messages(
+        company,
+        base_messages=[
+            {"role": "system", "content": sys},
+            {"role": "user", "content": usr},
+        ],
+        sales_objective=sales_objective,
+        audience=audience,
+    )
+
     try:
         resp = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "system", "content": sys}, {"role": "user", "content": usr}],
+            messages=messages,
             response_format={"type": "json_object"},
         )
         content = resp.choices[0].message.content or "{}"
@@ -89,7 +125,14 @@ def generate_tavily_queries(company: str, user_input: str = "", max_queries: int
     return cleaned
 
 
-def company_briefing_with_web_search(company: str, hits: list[SearchHit], context: str = "") -> str:
+def company_briefing_with_web_search(
+    company: str,
+    hits: list[SearchHit],
+    context: str = "",
+    *,
+    sales_objective: str | None = None,
+    audience: str | None = None,
+) -> str:
     """Web検索結果を使用した企業分析（柔軟構成／固定テンプレ外し／参考リンクは最後に必ず付与）"""
     s = get_settings()
     client = get_client()
@@ -107,7 +150,7 @@ def company_briefing_with_web_search(company: str, hits: list[SearchHit], contex
         {"title": h.title, "url": h.url, "snippet": h.snippet, "published": h.published or ""} for h in (hits or [])
     ]
 
-    messages = [
+    base_messages = [
         {
             "role": "system",
             "content": (
@@ -137,6 +180,14 @@ def company_briefing_with_web_search(company: str, hits: list[SearchHit], contex
         },
     ]
 
+    # ▼ Universal Context を System 先頭に追加
+    messages = _prepend_uc_messages(
+        company,
+        base_messages=base_messages,
+        sales_objective=sales_objective,
+        audience=audience,
+    )
+
     try:
         resp = client.chat.completions.create(
             model=model_name,
@@ -149,7 +200,14 @@ def company_briefing_with_web_search(company: str, hits: list[SearchHit], contex
     return content
 
 
-def company_briefing_without_web_search(company: str, user_input: str, context: str = "") -> str:
+def company_briefing_without_web_search(
+    company: str,
+    user_input: str,
+    context: str = "",
+    *,
+    sales_objective: str | None = None,
+    audience: str | None = None,
+) -> str:
     """Web検索なしでユーザー入力のみを使用した企業分析（従来どおり）"""
     s = get_settings()
     client = get_client()
@@ -162,7 +220,7 @@ def company_briefing_without_web_search(company: str, user_input: str, context: 
     else:
         model_name = s.default_model
 
-    messages = [
+    base_messages = [
         {
             "role": "system",
             "content": (
@@ -182,6 +240,14 @@ def company_briefing_without_web_search(company: str, user_input: str, context: 
             ),
         },
     ]
+
+    # ▼ Universal Context を System 先頭に追加
+    messages = _prepend_uc_messages(
+        company,
+        base_messages=base_messages,
+        sales_objective=sales_objective,
+        audience=audience,
+    )
 
     try:
         resp = client.chat.completions.create(

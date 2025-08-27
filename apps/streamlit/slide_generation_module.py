@@ -48,6 +48,7 @@ PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 # --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
 from lib.api import api_available, get_api_client
 from lib.new_slide_generator import NewSlideGenerator
+from lib.new_slide_generator import NewSlideGenerator
 from lib.styles import (
     apply_company_analysis_page_styles,
     apply_main_styles,
@@ -1138,8 +1139,10 @@ def render_slide_generation_page():
                     print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
                         project_name=company_internal,  # 案件名として企業名を使用
+                        project_name=company_internal,  # 案件名として企業名を使用
                         company_name=company_internal,
                         meeting_notes=st.session_state.slide_meeting_notes or "",
+                        chat_history=chat_history,
                         chat_history=chat_history,
                         products=selected,
                         use_tavily=st.session_state.slide_use_tavily_api,
@@ -1167,6 +1170,7 @@ def render_slide_generation_page():
                     )
                     
                 except Exception as e:
+                    print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")

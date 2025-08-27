@@ -249,7 +249,7 @@ else:
             key="projects_search_keyword",
             placeholder="案件名・企業名・概要で検索",
         )
-        has_tx_only = st.checkbox(
+        has_tx_only = st.toggle(
             "取引がある案件のみ",
             value=st.session_state.get("projects_has_tx_only", False),
             key="projects_has_tx_only",

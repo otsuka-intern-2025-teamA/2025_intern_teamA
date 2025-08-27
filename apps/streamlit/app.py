@@ -5,6 +5,9 @@ from pathlib import Path
 
 import streamlit as st
 
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "company_analysis" / ".env", override=False)
+
 # 画像ファイルのパス定義
 if "__file__" in globals():
     PROJECT_ROOT = Path(__file__).resolve().parents[2]

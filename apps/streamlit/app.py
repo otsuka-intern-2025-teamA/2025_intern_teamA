@@ -3,9 +3,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 import streamlit as st
 
-from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "company_analysis" / ".env", override=False)
 
 # 画像ファイルのパス定義
@@ -29,9 +30,9 @@ from lib.api import APIError, api_available, format_date, get_api_client
 from lib.styles import (
     apply_main_styles,
     apply_projects_list_page_styles,  # ← このページ専用CSS(サイドバー圧縮/ロゴカード等)
-    apply_title_styles,               # ← タイトルの基本スタイルを適用
-    render_projects_list_title,       # ← タイトル描画
-    render_sidebar_logo_card,         # ← サイドバー上部ロゴ
+    apply_title_styles,  # ← タイトルの基本スタイルを適用
+    render_projects_list_title,  # ← タイトル描画
+    render_sidebar_logo_card,  # ← サイドバー上部ロゴ
 )
 from slide_generation_module import render_slide_generation_page
 

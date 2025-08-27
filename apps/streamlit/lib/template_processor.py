@@ -6,10 +6,10 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.dml.color import RGBColor
 
 
 class TemplateProcessor:
@@ -28,7 +28,7 @@ class TemplateProcessor:
     
     def process_template(
         self, 
-        variables: Dict[str, str], 
+        variables: dict[str, str], 
         output_path: str,
         preserve_formatting: bool = True
     ) -> str:
@@ -63,7 +63,7 @@ class TemplateProcessor:
         print(f"テンプレート処理完了: {total_replacements}件の置換を実行")
         return str(output_path)
     
-    def _process_slide(self, slide, variables: Dict[str, str], preserve_formatting: bool) -> int:
+    def _process_slide(self, slide, variables: dict[str, str], preserve_formatting: bool) -> int:
         """スライド内の変数を処理"""
         replacements = 0
         
@@ -75,7 +75,7 @@ class TemplateProcessor:
         
         return replacements
     
-    def _process_shape(self, shape, variables: Dict[str, str], preserve_formatting: bool) -> int:
+    def _process_shape(self, shape, variables: dict[str, str], preserve_formatting: bool) -> int:
         """シェイプ内の変数を処理"""
         replacements = 0
         
@@ -101,7 +101,7 @@ class TemplateProcessor:
         
         return replacements
     
-    def _process_text_frame(self, text_frame, variables: Dict[str, str], preserve_formatting: bool) -> int:
+    def _process_text_frame(self, text_frame, variables: dict[str, str], preserve_formatting: bool) -> int:
         """テキストフレーム内の変数を処理"""
         if not text_frame or not text_frame.text:
             return 0
@@ -190,7 +190,7 @@ class TemplateProcessor:
         
         return 1
     
-    def _process_table(self, table, variables: Dict[str, str], preserve_formatting: bool) -> int:
+    def _process_table(self, table, variables: dict[str, str], preserve_formatting: bool) -> int:
         """テーブル内の変数を処理"""
         replacements = 0
         
@@ -203,7 +203,7 @@ class TemplateProcessor:
         
         return replacements
     
-    def get_template_info(self) -> Dict[str, Any]:
+    def get_template_info(self) -> dict[str, Any]:
         """テンプレートの情報を取得"""
         try:
             prs = Presentation(self.template_path)
@@ -243,7 +243,7 @@ class TemplateProcessor:
                 "file_path": str(self.template_path)
             }
     
-    def validate_variables(self, variables: Dict[str, str]) -> Dict[str, Any]:
+    def validate_variables(self, variables: dict[str, str]) -> dict[str, Any]:
         """変数の妥当性を検証"""
         validation_result = {
             "valid": True,
@@ -289,7 +289,7 @@ class TemplateProcessor:
             
         except Exception as e:
             validation_result["valid"] = False
-            validation_result["errors"].append(f"テンプレート読み込みエラー: {str(e)}")
+            validation_result["errors"].append(f"テンプレート読み込みエラー: {e!s}")
         
         return validation_result
 

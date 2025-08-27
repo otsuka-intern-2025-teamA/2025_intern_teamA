@@ -4,8 +4,8 @@ Azure OpenAI API と TAVILY API を使用してプレゼンテーション内容
 """
 
 import os
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 try:
     from dotenv import load_dotenv
     # 環境変数の読み込み
@@ -61,12 +61,12 @@ class AIAgent:
         company_name: str,
         meeting_notes: str,
         chat_history: str,
-        products: List[Dict[str, Any]],
-        proposal_issues: List[Dict[str, Any]],
+        products: list[dict[str, Any]],
+        proposal_issues: list[dict[str, Any]],
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         プレゼンテーション用変数を生成
         
@@ -164,7 +164,7 @@ class AIAgent:
     
     def _generate_agenda_bullets(
         self, company_name: str, meeting_notes: str, 
-        products: List[Dict[str, Any]], use_gpt: bool
+        products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
         """アジェンダの生成"""
         if not use_gpt or not self.azure_client:
@@ -253,7 +253,7 @@ class AIAgent:
             return summary
     
     def _generate_problem_hypotheses(
-        self, proposal_issues: List[Dict[str, Any]], use_gpt: bool
+        self, proposal_issues: list[dict[str, Any]], use_gpt: bool
     ) -> str:
         """課題仮説の生成（400文字以内）"""
         if not proposal_issues:
@@ -298,7 +298,7 @@ class AIAgent:
             return f"主要課題: {issues_text}"
     
     def _generate_proposal_summary(
-        self, company_name: str, products: List[Dict[str, Any]], 
+        self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
         """提案サマリーの生成（400文字以内）"""
@@ -343,9 +343,9 @@ class AIAgent:
             return f"{company_name}向けに{len(products)}件の製品を提案します。"
     
     def _generate_product_variables(
-        self, product: Dict[str, Any], index: int, 
+        self, product: dict[str, Any], index: int, 
         use_tavily: bool, use_gpt: bool, tavily_uses: int
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """製品変数の生成"""
         variables = {}
         
@@ -374,7 +374,7 @@ class AIAgent:
         
         return variables
     
-    def _estimate_product_price(self, product: Dict[str, Any], use_gpt: bool) -> str:
+    def _estimate_product_price(self, product: dict[str, Any], use_gpt: bool) -> str:
         """製品価格の推定"""
         if not use_gpt or not self.azure_client:
             return "$1,000.00"  # デフォルト価格
@@ -415,7 +415,7 @@ class AIAgent:
             print(f"価格推定エラー: {e}")
             return "$1,000.00"
     
-    def _generate_product_reason(self, product: Dict[str, Any], use_gpt: bool) -> str:
+    def _generate_product_reason(self, product: dict[str, Any], use_gpt: bool) -> str:
         """製品選択理由の生成"""
         if not use_gpt or not self.azure_client:
             return product.get("reason", "製品の特性と企業ニーズの適合性")
@@ -452,7 +452,7 @@ class AIAgent:
             return "製品の特性と企業ニーズの適合性"
     
     def _generate_expected_impacts(
-        self, company_name: str, products: List[Dict[str, Any]], 
+        self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
         """期待効果の生成（400文字以内）"""
@@ -489,7 +489,7 @@ class AIAgent:
             print(f"期待効果生成エラー: {e}")
             return f"{company_name}の業務効率化とコスト削減が期待されます。"
     
-    def _calculate_total_costs(self, products: List[Dict[str, Any]]) -> str:
+    def _calculate_total_costs(self, products: list[dict[str, Any]]) -> str:
         """総コストの計算"""
         total = 0.0
         for product in products:
@@ -506,7 +506,7 @@ class AIAgent:
             return "$0.00"
     
     def _generate_schedule_plan(
-        self, company_name: str, products: List[Dict[str, Any]], use_gpt: bool
+        self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
         """スケジュール計画の生成（400文字以内）"""
         if not use_gpt or not self.azure_client:
@@ -540,7 +540,7 @@ class AIAgent:
             return f"{company_name}向けの段階的導入計画を提案します。"
     
     def _generate_next_actions(
-        self, company_name: str, products: List[Dict[str, Any]], use_gpt: bool
+        self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
         """次のアクションの生成（400文字以内）"""
         if not use_gpt or not self.azure_client:

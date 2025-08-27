@@ -6,18 +6,18 @@ Streamlit アプリケーション用ライブラリ
 # 遅延インポートでエラーを回避
 __all__ = [
     "AIAgent",
-    "TemplateProcessor", 
-    "create_temp_template",
+    "NewSlideGenerator",
+    "TemplateProcessor",
     "cleanup_temp_template",
-    "NewSlideGenerator"
+    "create_temp_template"
 ]
 
 def _import_modules():
     """モジュールを遅延インポート"""
     try:
         from .ai_agent import AIAgent
-        from .template_processor import TemplateProcessor, create_temp_template, cleanup_temp_template
         from .new_slide_generator import NewSlideGenerator
+        from .template_processor import TemplateProcessor, cleanup_temp_template, create_temp_template
         return True
     except ImportError:
         return False

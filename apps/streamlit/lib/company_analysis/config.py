@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 
 # Load .env (override to ensure interactive changes win)
 load_dotenv(".env", override=True)

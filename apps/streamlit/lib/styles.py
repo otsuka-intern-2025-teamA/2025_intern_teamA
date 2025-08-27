@@ -120,7 +120,7 @@ def get_title_styles() -> str:
         line-height: 1.3 !important;
         font-weight: 700 !important;
         color: #262730 !important;
-        margin: 0 !important; padding: 0 !important;
+        margin: -1 !important; padding: 0 !important;
         word-wrap: break-word !important; overflow-wrap: break-word !important;
     }
     .stApp h1 { word-wrap: break-word !important; overflow-wrap: break-word !important; line-height: 1.3 !important; }

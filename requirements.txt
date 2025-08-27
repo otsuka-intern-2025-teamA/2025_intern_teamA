@@ -358,3 +358,4 @@ uvicorn==0.35.0
 fastapi==0.116.1
 ruff==0.12.10
 python-docx
+pypdf

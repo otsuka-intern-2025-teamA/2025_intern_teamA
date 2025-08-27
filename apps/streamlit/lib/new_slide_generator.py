@@ -3,19 +3,18 @@
 AIエージェントとテンプレート処理を統合してプレゼンテーションを生成
 """
 
-import os
 import tempfile
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from .ai_agent import AIAgent
-from .template_processor import TemplateProcessor, create_temp_template, cleanup_temp_template
+from .template_processor import TemplateProcessor, cleanup_temp_template, create_temp_template
 
 
 class NewSlideGenerator:
     """新スライド生成システムのメインクラス"""
-    def __init__(self, template_path: str = None):
+    def __init__(self, template_path=None):
         """
         スライド生成システムの初期化
         
@@ -63,8 +62,8 @@ class NewSlideGenerator:
         company_name: str,
         meeting_notes: str = "",
         chat_history: str = "",
-        products: List[Dict[str, Any]] = None,
-        proposal_issues: List[Dict[str, Any]] = None,
+        products: list[dict[str, Any]] = None,
+        proposal_issues: list[dict[str, Any]] = None,
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
@@ -86,7 +85,7 @@ class NewSlideGenerator:
         Returns:
             生成されたプレゼンテーションのバイトデータ
         """
-        print(f"🚀 プレゼンテーション生成開始")
+        print("🚀 プレゼンテーション生成開始")
         print(f"  プロジェクト名: {project_name}")
         print(f"  企業名: {company_name}")
         print(f"  製品数: {len(products) if products else 0}")
@@ -159,7 +158,7 @@ class NewSlideGenerator:
             print(f"❌ プレゼンテーション生成でエラーが発生: {e}")
             raise
     
-    def get_template_info(self) -> Dict[str, Any]:
+    def get_template_info(self) -> dict[str, Any]:
         """テンプレートの詳細情報を取得"""
         return self.template_processor.get_template_info()
     
@@ -169,12 +168,12 @@ class NewSlideGenerator:
         company_name: str,
         meeting_notes: str = "",
         chat_history: str = "",
-        products: List[Dict[str, Any]] = None,
-        proposal_issues: List[Dict[str, Any]] = None,
+        products: list[dict[str, Any]] = None,
+        proposal_issues: list[dict[str, Any]] = None,
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         生成される変数のプレビューを表示
         
@@ -217,7 +216,7 @@ class NewSlideGenerator:
     
     def generate_with_custom_variables(
         self,
-        custom_variables: Dict[str, str],
+        custom_variables: dict[str, str],
         preserve_formatting: bool = True
     ) -> bytes:
         """
@@ -268,7 +267,7 @@ class NewSlideGenerator:
             print(f"❌ カスタム変数でのプレゼンテーション生成でエラーが発生: {e}")
             raise
     
-    def get_supported_variables(self) -> List[str]:
+    def get_supported_variables(self) -> list[str]:
         """サポートされている変数のリストを取得"""
         template_info = self.get_template_info()
         if "error" in template_info:
@@ -280,7 +279,7 @@ class NewSlideGenerator:
         
         return sorted(list(variables))
     
-    def test_template_processing(self) -> Dict[str, Any]:
+    def test_template_processing(self) -> dict[str, Any]:
         """テンプレート処理のテスト実行"""
         try:
             # テスト用の変数

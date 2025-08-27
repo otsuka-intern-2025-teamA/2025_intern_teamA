@@ -1,12 +1,10 @@
 # slide_generation_module.py
 # ---------------------------------------------------------
-# スライド作成ページ（サイドバー追加版 × カードUI）
-# - サイドバー：ロゴ／案件一覧へ戻る（左下固定）／企業名／提案件数／履歴参照件数／商材データセット選択／クリア
-# - 本文：上段ヘッダ（左＝見出し／右＝提案商品取得ボタン）、
-#          1段目＝商談詳細（大）＆参考資料（横並び）、
-#          2段目＝左：課題分析結果／右：提案商品カード
-#          下段＝生成とドラフトJSON
-# - 生成ロジック：CSV→粗選定→LLMでTop-K選抜→LLMで80字要約（失敗時は短縮）
+# スライド作成ページ（サイドバー＝グローバル設定 / 本文＝入力→結果 / スライド生成）
+# - サイドバー：ロゴ／案件一覧へ戻る／企業名(表示のみ)／商材データセット／AI設定／クリア
+# - 本文：上段＝商談メモを入力 + 参考資料を入力 + 詳細設定(Top-K/履歴参照)
+#          中段＝課題の要約（結果）／提案候補の一覧（結果）
+#          下段＝スライド生成（テンプレ添付 → 生成 → DL）
 # ---------------------------------------------------------
 
 from __future__ import annotations
@@ -14,25 +12,24 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-import tempfile
 
-import numpy as np
 import pandas as pd
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
+
 load_dotenv(".env", override=True)
 
 # APIクライアント（企業分析のチャット履歴取得に使用）
 from lib.api import api_available, get_api_client
 
-# スライド生成モジュール
-# 共通スタイル
+# スライド生成モジュール / スタイル
 from lib.styles import (
-    apply_company_analysis_page_styles,  # サイドバー圧縮/ロゴカード/下寄せCSSを流用
+    apply_company_analysis_page_styles,  # サイドバー圧縮/ロゴカード/下寄せCSS
     apply_main_styles,
     apply_slide_generation_page_styles,
     apply_title_styles,
@@ -65,51 +62,44 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("product_candidates", [])       # 表示用カードデータの配列
     ss.setdefault("slide_outline", None)
     ss.setdefault("slide_overview", "")
-    ss.setdefault("slide_history_reference_count", 3)  # 直近N往復参照（デフォ3）
-    ss.setdefault("slide_top_k", 1)                   # 提案件数（デフォ1）
-    ss.setdefault("slide_products_dataset", "Auto")    # 商材データセット選択
-    ss.setdefault("slide_use_tavily_api", True)        # TAVILY API使用フラグ
-    ss.setdefault("slide_use_gpt_api", True)           # GPT API使用フラグ
-    ss.setdefault("slide_tavily_uses", 1)              # 製品あたりのTAVILY API呼び出し回数
+    ss.setdefault("slide_history_reference_count", 3)  # ← 詳細設定に移動（本文）
+    ss.setdefault("slide_top_k", 1)                   # ← 詳細設定に移動（本文）
+    ss.setdefault("slide_products_dataset", "Auto")    # サイドバー（グローバル）
+    ss.setdefault("slide_use_tavily_api", True)        # サイドバー（グローバル）
+    ss.setdefault("slide_use_gpt_api", True)           # サイドバー（グローバル）
+    ss.setdefault("slide_tavily_uses", 1)              # サイドバー（グローバル）
     # 埋め込み検索用キャッシュ
     ss.setdefault("_emb_cache", {})
     # 表示用：課題分析結果（UIで見せるだけ。選定ロジックは従来通り）
     ss.setdefault("analyzed_issues", [])
+    # スライドテンプレ（任意）
     ss.setdefault("slide_template_bytes", None)
     ss.setdefault("slide_template_name", None)
 
 
 # =========================
-# 新スライド生成システム用のヘルパー関数
+# DBから課題スナップショット取得
 # =========================
 def _get_proposal_issues_from_db(proposal_id: str) -> list[dict[str, Any]]:
-    """データベースから提案課題を取得"""
     try:
         import sqlite3
         db_path = PROJECT_ROOT / "data" / "sqlite" / "app.db"
         if not db_path.exists():
             return []
-        
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT idx, issue, weight, keywords_json 
-                FROM proposal_issues 
-                WHERE proposal_id = ? 
+                SELECT idx, issue, weight, keywords_json
+                FROM proposal_issues
+                WHERE proposal_id = ?
                 ORDER BY idx
             """, (proposal_id,))
-            
             rows = cursor.fetchall()
             issues = []
             for row in rows:
-                import json
-                keywords = json.loads(row[3]) if row[3] else []
-                issues.append({
-                    "issue": row[1],
-                    "weight": row[2],
-                    "keywords": keywords
-                })
-            
+                import json as _j
+                keywords = _j.loads(row[3]) if row[3] else []
+                issues.append({"issue": row[1], "weight": row[2], "keywords": keywords})
             return issues
     except Exception as e:
         print(f"提案課題取得エラー: {e}")
@@ -219,17 +209,12 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
 
 
 # =========================
-# 参考資料（アップロードファイル）テキスト抽出【追加】
+# 参考資料（アップロードファイル）テキスト抽出
 # =========================
 def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000) -> str:
     """
-    アップロード資料からテキストを抽出して連結して返す（ロバストに動く簡易実装）。
-    - PDF: pypdf
-    - DOCX: python-docx
-    - PPTX: python-pptx
-    - CSV: pandasで先頭数行
-    - TXT: そのまま
-    失敗時はファイル名の記録のみ。画像/OCRは未対応。
+    アップロード資料からテキストを抽出して連結して返す。
+    失敗時はファイル名のみ。画像/OCRは未対応。
     """
     if not uploaded_files:
         return ""
@@ -252,7 +237,6 @@ def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000
         try:
             name = getattr(f, "name", "uploaded_file")
             lower = str(name).lower()
-            # 読み出し位置を初期化
             try:
                 f.seek(0)
             except Exception:
@@ -267,7 +251,7 @@ def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000
                 try:
                     import io
 
-                    from pypdf import PdfReader  # pip install pypdf
+                    from pypdf import PdfReader
                     reader = PdfReader(io.BytesIO(data))
                     page_limit = min(len(reader.pages), 30)
                     texts = []
@@ -284,7 +268,7 @@ def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000
                 try:
                     import io
 
-                    from docx import Document  # pip install python-docx
+                    from docx import Document
                     doc = Document(io.BytesIO(data))
                     paras = [p.text for p in doc.paragraphs if p.text]
                     _append(f"\n[DOCX:{name} 抜粋]\n" + "\n".join(paras))
@@ -295,7 +279,7 @@ def _extract_text_from_uploads(uploaded_files: list[Any], max_chars: int = 12000
                 try:
                     import io
 
-                    from pptx import Presentation  # pip install python-pptx
+                    from pptx import Presentation
                     prs = Presentation(io.BytesIO(data))
                     slide_texts = []
                     for s in prs.slides:
@@ -431,175 +415,14 @@ def _llm_pick_products(pool: list[dict[str, Any]], top_k: int, company: str, not
     """
     if not pool:
         return []
-    client, model = _get_chat_client()
+    # ここでは実行しない（簡易ロジック運用）。必要なら _get_chat_client を実装して使用。
 
-    lines = []
-    for p in pool:
-        desc = (p.get("description") or "")[:200]
-        tags = (p.get("tags") or "")[:120]
-        cat = p.get("source_csv") or p.get("category") or ""
-        price = p.get("price")
-        price_s = f"¥{int(_to_float(price)):,}" if _to_float(price) is not None else "—"
-        lines.append(f"- id:{p['id']} | name:{p.get('name','')} | category:{cat} | price:{price_s} | tags:{tags} | desc:{desc}")
-    catalog = "\n".join(lines)
-    # 課題リストを文字列化
-    issues_text = ""
-    if issues:
-        parts = []
-        for i, it in enumerate(issues):
-            kw = ", ".join(it.get("keywords") or [])
-            parts.append(f"[{i}] {it.get('issue')} (重み={it.get('weight'):.2f}; 関連キーワード={kw})")
-        issues_text = "\n".join(parts)
-    # JSONスキーマ
-    schema = {
-        "recommendations": [
-            {
-                "id": "<id>",
-                "reason": "<120字以内>",
-                "confidence": 0.0,
-            }
-        ]
-    }
-    if issues:
-        schema = {
-            "recommendations": [
-                {
-                    "id": "<id>",
-                    "reason": "<120字以内>",
-                    "confidence": 0.0,
-                    "solved_issue_ids": [0],
-                    "evidence": "<根拠抜粋>"
-                }
-            ]
-        }
-    user = f"""あなたはB2Bプリセールスの提案プランナーです。
-以下の会社情報と商談詳細、会話文脈に基づいて、候補カタログから Top-{top_k} の製品を選び、日本語で短い理由（120字以内）と信頼度(0-1)を付けてください。
-必ずカタログに存在する id のみを使用してください。
-出力は JSON のみで、以下のスキーマに従ってください:
-{json.dumps(schema, ensure_ascii=False)}
-
-# 会社: {company or "(なし)"}
-# 商談詳細:
-{notes or "(なし)"}
-
-# 会話文脈:
-{ctx or "(なし)"}
-
-# 課題一覧:
-{issues_text or "(なし)"}
-
-# 候補カタログ:
-{catalog}
-"""
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-            response_format={"type": "json_object"},
-        )
-        txt = resp.choices[0].message.content or ""
-    except Exception:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-        )
-        txt = resp.choices[0].message.content or ""
-
-    data = _extract_json(txt)
-    recs = data.get("recommendations", []) if isinstance(data, dict) else []
-    if not recs:
-        return []
-    pool_map = {str(p["id"]): p for p in pool}
-    out: list[dict[str, Any]] = []
-    for r in recs:
-        pid = str(r.get("id", "")).strip()
-        if not pid or pid not in pool_map:
-            continue
-        src = pool_map[pid]
-        # reason / confidence
-        reason = (r.get("reason") or "").strip() or src.get("reason")
-        conf = float(r.get("confidence", 0.0)) if r.get("confidence") is not None else float(src.get("score", 0.0))
-        solved_ids = r.get("solved_issue_ids") if isinstance(r.get("solved_issue_ids"), list) else []
-        evidence = (r.get("evidence") or "").strip()
-        out.append({
-            **src,
-            "reason": reason,
-            "score": conf,
-            "solved_issue_ids": solved_ids,
-            "evidence": evidence,
-        })
-        if len(out) >= top_k:
-            break
-    return out
+    return []
 
 
 def _summarize_overviews_llm(cands: list[dict[str, Any]]) -> None:
-    """各製品の概要を 80字以内で LLM 要約（失敗時は説明を短縮）"""
-    items = []
-    has_any = False
-    for c in cands:
-        mat = c.get("description") or c.get("tags") or c.get("name") or ""
-        if mat:
-            has_any = True
-        items.append({"id": str(c.get("id") or ""), "name": c.get("name") or "", "material": str(mat)[:600]})
-
-    if not has_any:
-        for c in cands:
-            c["overview"] = "—"
-        return
-
-    try:
-        client, model = _get_chat_client()
-        payload = "\n".join([f"- id:{it['id']} / 名称:{it['name']}\n  内容:{it['material']}" for it in items])
-        prompt = f"""各製品の「製品概要」を日本語で1〜2文、最大80字で要約してください。事実の追加・誇張は禁止。
-出力は JSON のみ:
-{{"summaries":[{{"id":"<id>","overview":"<80字以内>"}}]}}
-入力:
-{payload}"""
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-            txt = resp.choices[0].message.content or ""
-        except Exception:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            txt = resp.choices[0].message.content or ""
-
-        data = _extract_json(txt)
-        mp = {}
-        if isinstance(data, dict):
-            for s in data.get("summaries", []) or []:
-                pid = str(s.get("id") or "")
-                ov = (s.get("overview") or "").strip()
-                if pid and ov:
-                    mp[pid] = ov
-
-        for c in cands:
-            pid = str(c.get("id") or "")
-            base = c.get("description") or c.get("tags") or ""
-            fallback = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
-            c["overview"] = mp.get(pid, fallback)
-    except Exception:
-        for c in cands:
-            base = c.get("description") or c.get("tags") or ""
-            c["overview"] = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+    """（未使用）各製品の概要を LLM で要約する場合のフック"""
+    pass
 
 
 def _resolve_product_image_src(rec: dict[str, Any]) -> str | None:
@@ -617,40 +440,27 @@ def _resolve_product_image_src(rec: dict[str, Any]) -> str | None:
         return str(PLACEHOLDER_IMG)
     return None
 
+
 # =========================
-# 新スライド生成システム用のヘルパー関数（続き）
+# 簡易課題抽出
 # =========================
 def _analyze_pain_points_simple(notes: str, messages_ctx: str, uploads_text: str = "") -> list[dict[str, Any]]:
-    """
-    簡易版課題分析（LLMを使用しない）
-    商談メモ・会話文脈・アップロード資料から基本的な課題を抽出
-    """
-    issues = []
-    
-    # 基本的な課題パターン
-    basic_issues = [
+    issues = [
         {"issue": "業務効率化", "weight": 0.4, "keywords": ["効率化", "自動化", "生産性"]},
         {"issue": "コスト最適化", "weight": 0.3, "keywords": ["費用削減", "最適化", "コスト"]},
-        {"issue": "情報管理改善", "weight": 0.3, "keywords": ["情報共有", "管理", "システム"]}
+        {"issue": "情報管理改善", "weight": 0.3, "keywords": ["情報共有", "管理", "システム"]},
     ]
-    
-    # テキスト内容に基づいて重みを調整
     all_text = f"{notes} {messages_ctx} {uploads_text}".lower()
-    
     if "効率" in all_text or "生産性" in all_text:
-        basic_issues[0]["weight"] = 0.5
-        basic_issues[1]["weight"] = 0.25
-        basic_issues[2]["weight"] = 0.25
+        issues[0]["weight"], issues[1]["weight"], issues[2]["weight"] = 0.5, 0.25, 0.25
     elif "コスト" in all_text or "費用" in all_text:
-        basic_issues[0]["weight"] = 0.25
-        basic_issues[1]["weight"] = 0.5
-        basic_issues[2]["weight"] = 0.25
+        issues[0]["weight"], issues[1]["weight"], issues[2]["weight"] = 0.25, 0.5, 0.25
     elif "情報" in all_text or "管理" in all_text:
-        basic_issues[0]["weight"] = 0.25
-        basic_issues[1]["weight"] = 0.25
-        basic_issues[2]["weight"] = 0.5
-    
-    return basic_issues
+        issues[0]["weight"], issues[1]["weight"], issues[2]["weight"] = 0.25, 0.25, 0.5
+    return issues
+
+# 既存コード互換（他所の呼び出し名を吸収）
+_analyze_pain_points = _analyze_pain_points_simple
 
 
 # =========================
@@ -663,8 +473,8 @@ def _search_product_candidates(
     top_k: int,
     history_n: int,
     dataset: str,
-    uploaded_files: list[Any],   # ここを活用（資料テキスト抽出）
-    issues_precomputed: list[dict[str, Any]] | None = None,   # ← 追加
+    uploaded_files: list[Any],
+    issues_precomputed: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     # 企業分析の文脈
     ctx = _gather_messages_context(item_id, history_n)
@@ -678,10 +488,7 @@ def _search_product_candidates(
     uploads_text = _extract_text_from_uploads(uploaded_files) if uploaded_files else ""
 
     # 事前に計算済みの課題があればそれを使用。なければここで抽出。
-    if issues_precomputed is not None:
-        issues = issues_precomputed
-    else:
-        issues = _analyze_pain_points(meeting_notes or "", ctx or "", uploads_text)
+    issues = issues_precomputed if issues_precomputed is not None else _analyze_pain_points(meeting_notes or "", ctx or "", uploads_text)
 
     # 語句一致で粗選定
     top_pool = max(40, top_k * 4)
@@ -689,11 +496,12 @@ def _search_product_candidates(
 
     # 上位K件を選択
     selected = pool[:top_k]
-    
-    # 各製品の概要を生成
+
+    # 各製品の概要（ここでは簡易に description などから切り出す）
     for product in selected:
-        product["overview"] = _generate_product_overview(product)
-    
+        base = product.get("description") or product.get("tags") or product.get("name") or ""
+        product["overview"] = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+
     return selected
 
 
@@ -727,13 +535,13 @@ def _make_outline_preview(company: str, meeting_notes: str, selected_products: l
         ],
     }
 
-# --- 段階表示用レンダラ ---
-def _render_issues_block(issues: list[dict[str, Any]], placeholder):
-    placeholder.empty()
-    with placeholder.container():
-        st.markdown("**● 課題分析結果**")
+
+# --- 結果レンダラ（タイトルと本文プレースホルダを分離） ---
+def _render_issues_body(issues: list[dict[str, Any]], body_ph):
+    body_ph.empty()
+    with body_ph.container():
         if not issues:
-            st.caption("『提案商品を出力』を押すと、商談メモ・履歴・参考資料から課題を自動抽出して表示します。")
+            st.caption("『商品提案を作成』を押すと、商談メモ・履歴・参考資料から課題を自動抽出して表示します。")
             return
         for i, it in enumerate(issues, start=1):
             with st.container(border=True):
@@ -743,12 +551,12 @@ def _render_issues_block(issues: list[dict[str, Any]], placeholder):
                 if kws:
                     st.markdown("関連キーワード: " + " / ".join(kws))
 
-def _render_candidates_block(recs: list[dict[str, Any]], placeholder):
-    placeholder.empty()
-    with placeholder.container():
-        st.markdown("**● 提案商品一覧**")
+
+def _render_candidates_body(recs: list[dict[str, Any]], body_ph):
+    body_ph.empty()
+    with body_ph.container():
         if not recs:
-            st.info("提案商品がありません。『提案商品を出力』を押してください。")
+            st.info("提案候補がありません。『商品提案を作成』を押してください。")
             return
         for r in recs:
             pid = str(r.get("id") or "")
@@ -778,8 +586,11 @@ def _render_candidates_block(recs: list[dict[str, Any]], placeholder):
 
 
 # --- 提案保存ユーティリティ（既存 app.db を活用） ---
-import sqlite3, uuid, json as _json
-DB_PATH = PROJECT_ROOT / "data" / "sqlite" / "app.db"  # ← ここだけパス変更
+import json as _json
+import sqlite3
+import uuid
+
+DB_PATH = PROJECT_ROOT / "data" / "sqlite" / "app.db"
 
 def _init_db_for_proposals():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -826,7 +637,7 @@ def _save_proposal_to_db(
     products: list[dict[str, Any]],
     created_at_iso: str
 ) -> str:
-    """提案ひとまとまりを保存し、proposal_id を返す（既存 app.db に追記）。"""
+    """提案ひとまとまりを保存し、proposal_id を返す。"""
     _init_db_for_proposals()
     pid = str(uuid.uuid4())
     with sqlite3.connect(DB_PATH) as conn:
@@ -835,13 +646,11 @@ def _save_proposal_to_db(
             "INSERT INTO proposals(id, project_item_id, company, meeting_notes, overview, created_at) VALUES(?,?,?,?,?,?)",
             (pid, project_item_id, company, meeting_notes, overview, created_at_iso)
         )
-        # 課題のスナップショット
         for i, it in enumerate(issues or []):
             c.execute(
                 "INSERT INTO proposal_issues(proposal_id, idx, issue, weight, keywords_json) VALUES(?,?,?,?,?)",
                 (pid, i+1, it.get('issue',''), float(it.get('weight') or 0.0), _json.dumps(it.get('keywords') or [], ensure_ascii=False))
             )
-        # 採用製品のスナップショット
         for r, p in enumerate(products or []):
             c.execute(
                 """INSERT INTO proposal_products(
@@ -864,13 +673,11 @@ def _save_proposal_to_db(
     return pid
 
 
-
-
 # =========================
-# メイン描画（フロント改修のみ）
+# メイン描画（改修後）
 # =========================
 def render_slide_generation_page():
-    """スライド作成ページ（フロント配置を変更：上段＝商談詳細＆資料、下段＝課題分析＆提案商品カード）"""
+    """スライド作成ページ（入力と結果を空間分離 / サイドバーはグローバル前提のみ）"""
     _ensure_session_defaults()
 
     try:
@@ -900,41 +707,28 @@ def render_slide_generation_page():
         company_internal = ""
         item_id = None
 
-    # ---------- サイドバー ----------
+    # ---------- サイドバー（グローバル前提のみ） ----------
     with st.sidebar:
         render_sidebar_logo_card(LOGO_PATH)
 
         st.markdown("### 設定")
         st.text_input("企業名", value=company_internal, key="slide_company_input", disabled=True)
 
-        # --- ここから“数字はすべて一覧選択型” & Session State 既定値のみ使用 ---
-        st.selectbox("提案件数", options=list(range(1, 11)), key="slide_top_k")
-
-        st.selectbox(
-            "履歴参照件数（往復）",
-            options=list(range(1, 11)),
-            key="slide_history_reference_count",
-            help="企業分析のチャット履歴の直近N往復を文脈として使用",
-        )
-
         st.selectbox(
             "商材データセット",
             options=_list_product_datasets(),
             key="slide_products_dataset",
-            help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
+            help="data/csv/products/ 配下のフォルダ。Autoは自動選択。"
         )
 
         st.markdown("---")
         st.markdown("### AI設定")
-        
         st.checkbox("GPT API使用", key="slide_use_gpt_api")
         st.checkbox("TAVILY API使用", key="slide_use_tavily_api")
-
         if st.session_state.slide_use_tavily_api:
             st.selectbox("TAVILY API呼び出し回数（製品あたり）", options=list(range(1, 6)), key="slide_tavily_uses")
 
-        sidebar_clear = st.button("クリア", use_container_width=True, help="提案商品を画面内でクリア")
-
+        sidebar_clear = st.button("クリア", use_container_width=True, help="提案候補と課題の表示をクリア")
         st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
         if st.button("← 案件一覧に戻る", use_container_width=True):
             st.session_state.current_page = "案件一覧"
@@ -945,33 +739,34 @@ def render_slide_generation_page():
     # ---------- タイトル ----------
     render_slide_generation_title(title_text)
 
-    # ---------- 見出し行（左＝見出し / 右＝提案商品取得ボタン） ----------
+    # ---------- 見出し行（左＝見出し / 右＝CTA） ----------
     head_l, head_r = st.columns([8, 2])
     with head_l:
-        st.subheader("1. 提案商品の出力")
+        st.subheader("1. 商品提案を作成")
     with head_r:
-        search_btn = st.button("提案商品を出力", use_container_width=True)
+        search_btn = st.button("商品提案作成", type="primary", use_container_width=True)
+    st.divider()
 
-    # ====================== 上段：商談詳細（大）＆参考資料（横並び） ======================
-    top_l, top_r = st.columns([3, 2], gap="large")  # 商談詳細を大きめに
+    # ====================== 上段：入力エリア（商談メモ＋参考資料＋詳細設定） ======================
+    top_l, top_r = st.columns([3, 2], gap="large")  # 商談メモを広めに
     with top_l:
-        st.markdown("**● 商談メモ（相手の課題や要望）**")
+        st.markdown("**● 商談メモを入力**")
         st.text_area(
-            label="商談メモ",
+            label="商談メモを入力",
             key="slide_meeting_notes",
             height=154,
             label_visibility="collapsed",
             placeholder="例：来期の需要予測精度向上と在庫最適化。PoCから段階導入… など",
         )
     with top_r:
-        st.markdown("**● 参考資料（議事録等）**")
+        st.markdown("**● 参考資料を入力（任意）**")
         uploads = st.file_uploader(
-            label="参考資料（任意）",
+            label="参考資料を入力（任意）",
             type=["pdf", "pptx", "docx", "csv", "png", "jpg", "jpeg", "txt"],
             accept_multiple_files=True,
             key="slide_uploader",
             label_visibility="collapsed",
-            help="アップロード資料は特徴抽出/要約に利用（今回の修正で課題抽出に反映されます）。",
+            help="議事録や要件定義などを添付。内容は課題抽出・候補選定に反映されます。",
         )
         if uploads:
             st.session_state.uploaded_files_store = uploads
@@ -979,99 +774,122 @@ def render_slide_generation_page():
         elif st.session_state.uploaded_files_store:
             st.caption(f"前回アップロード済み: {len(st.session_state.uploaded_files_store)} ファイル")
 
-    # ここは「上段：商談詳細＆参考資料」の直後
-    st.divider()
+    # ▼ 詳細設定（Top-K / 過去ログ参照）
+    with st.expander("詳細設定（商品提案の条件）", expanded=False):
+        cols = st.columns(2)
+        with cols[0]:
+            st.selectbox(
+                "提案候補の件数（Top-K）",
+                options=list(range(1, 11)),
+                key="slide_top_k",
+                help="表示する提案候補の件数。"
+            )
+        with cols[1]:
+            st.selectbox(
+                "過去ログ参照範囲（往復数）",
+                options=list(range(1, 11)),
+                key="slide_history_reference_count",
+                help="企業分析チャットの直近N往復を文脈として使用します。"
+            )
 
-    # ▼▼ 進行状況の表示場所を“課題分析結果／提案商品一覧”の直前に固定
-    progress_placeholder = st.empty()
-
-    # 下段カラム（課題分析結果／提案商品一覧）
+    # ====================== 中段：結果エリア（タイトル直下にメッセージ→本文） ======================
     bottom_l, bottom_r = st.columns([5, 7], gap="large")
+
+    # 左カラム：課題
     with bottom_l:
-        issues_placeholder = st.empty()
+        st.markdown("**● 課題の要約（結果）**")
+        issues_msg_ph = st.empty()   # ← タイトル直下の進行メッセージ
+        issues_body_ph = st.empty()  # ← 本文（リスト）
+
+    # 右カラム：候補
     with bottom_r:
-        candidates_placeholder = st.empty()
+        st.markdown("**● 提案候補の一覧（結果）**")
+        candidates_msg_ph = st.empty()   # ← タイトル直下の進行メッセージ
+        candidates_body_ph = st.empty()  # ← 本文（カード群）
 
     # 初期表示（前回の状態を反映）
-    _render_issues_block(st.session_state.get("analyzed_issues") or [], issues_placeholder)
-    _render_candidates_block(st.session_state.get("product_candidates") or [], candidates_placeholder)
+    _render_issues_body(st.session_state.get("analyzed_issues") or [], issues_body_ph)
+    _render_candidates_body(st.session_state.get("product_candidates") or [], candidates_body_ph)
 
+    # サイドバー「クリア」
+    if sidebar_clear:
+        st.session_state.product_candidates = []
+        st.session_state.analyzed_issues = []
+        st.session_state.slide_outline = None
+        # 進行メッセージも空に
+        issues_msg_ph.empty()
+        candidates_msg_ph.empty()
+        # 本文を空に（初期の案内文に戻す）
+        _render_issues_body([], issues_body_ph)
+        _render_candidates_body([], candidates_body_ph)
+        st.success("提案候補と課題の表示をクリアしました。")
+        st.stop()  # ← このターンはここで終了し、即時反映
 
+    # 提案生成押下
     if search_btn:
         if not company_internal.strip():
             st.error("企業が選択されていません。案件一覧から企業を選んでください。")
         else:
-            with progress_placeholder.container():
-                with st.status("商品提案を実行中…", expanded=True) as status:
-                    status.update(label="1/3 課題を抽出しています")
-                    # まずは課題だけ計算して即表示
-                    ctx_for_view = _gather_messages_context(item_id, int(st.session_state.slide_history_reference_count))
-                    uploads_text_for_view = _extract_text_from_uploads(st.session_state.uploaded_files_store) if st.session_state.uploaded_files_store else ""
-                    issues_early = _analyze_pain_points(
-                        st.session_state.slide_meeting_notes or "",
-                        ctx_for_view or "",
-                        uploads_text_for_view or ""
-                    )
-                    st.session_state.analyzed_issues = issues_early
-                    _render_issues_block(issues_early, issues_placeholder)  # ← 先に表示
-
-                    status.update(label="2/3 カタログと照合して提案商品を選定中")
-                    # 事前計算した課題を流用して提案商品を検索
-                    candidates = _search_product_candidates(
-                        company=company_internal,
-                        item_id=item_id,
-                        meeting_notes=st.session_state.slide_meeting_notes or "",
-                        top_k=int(st.session_state.slide_top_k),
-                        history_n=int(st.session_state.slide_history_reference_count),
-                        dataset=st.session_state.slide_products_dataset,
-                        uploaded_files=st.session_state.uploaded_files_store,
-                        issues_precomputed=issues_early,  # ← ここがポイント
-                    )
-                    st.session_state.product_candidates = candidates
-
-                    status.update(label="3/3 提案商品カードを描画しています")
-                    _render_candidates_block(candidates, candidates_placeholder)
-
-                    status.update(state="complete", label="提案商品の抽出が完了しました")
-
-        # （任意）ここでドラフト保存は従来どおり
-        try:
-            proposal_id = _save_proposal_to_db(
-                project_item_id=item_id,
-                company=company_internal,
-                meeting_notes=st.session_state.slide_meeting_notes or "",
-                overview=st.session_state.slide_overview or "",
-                issues=st.session_state.analyzed_issues or [],
-                products=st.session_state.product_candidates or [],
-                created_at_iso=datetime.now().isoformat(timespec="seconds")
+            # 1/3 課題抽出（左タイトル直下に進捗を表示）
+            issues_msg_ph.markdown("1/3 課題を抽出しています")
+            issues_body_ph.empty()  # いったん本文は空に
+            ctx_for_view = _gather_messages_context(item_id, int(st.session_state.slide_history_reference_count))
+            uploads_text_for_view = _extract_text_from_uploads(st.session_state.uploaded_files_store) if st.session_state.uploaded_files_store else ""
+            issues_early = _analyze_pain_points(
+                st.session_state.slide_meeting_notes or "",
+                ctx_for_view or "",
+                uploads_text_for_view or ""
             )
-            st.session_state["last_proposal_id"] = proposal_id
-            st.info(f"ドラフト提案を保存しました（ID: {proposal_id[:8]}…）")
-        except Exception as e:
-            st.warning(f"ドラフト保存に失敗しました: {e}")
+            st.session_state.analyzed_issues = issues_early
+            # 結果を描画 → 進捗メッセージは消す
+            issues_msg_ph.empty()
+            _render_issues_body(issues_early, issues_body_ph)
 
+            # 2/3 候補選定（右タイトル直下で進捗を順に表示）
+            candidates_msg_ph.markdown("2/3 カタログと照合して提案候補を選定中")
+            candidates_body_ph.empty()
+            candidates = _search_product_candidates(
+                company=company_internal,
+                item_id=item_id,
+                meeting_notes=st.session_state.slide_meeting_notes or "",
+                top_k=int(st.session_state.slide_top_k),
+                history_n=int(st.session_state.slide_history_reference_count),
+                dataset=st.session_state.slide_products_dataset,
+                uploaded_files=st.session_state.uploaded_files_store,
+                issues_precomputed=issues_early,
+            )
+            st.session_state.product_candidates = candidates
 
-    if sidebar_clear:
-        st.session_state.product_candidates = []
-        st.session_state.analyzed_issues = []
-        st.info("提案商品と課題分析表示をクリアしました。")
+            # 3/3 描画中
+            candidates_msg_ph.markdown("3/3 提案候補カードを描画しています")
+            _render_candidates_body(candidates, candidates_body_ph)
+            candidates_msg_ph.empty()  # 完了したら進捗を消す
 
+            # ドラフト保存（従来どおり）
+            try:
+                proposal_id = _save_proposal_to_db(
+                    project_item_id=item_id,
+                    company=company_internal,
+                    meeting_notes=st.session_state.slide_meeting_notes or "",
+                    overview=st.session_state.slide_overview or "",
+                    issues=st.session_state.analyzed_issues or [],
+                    products=st.session_state.product_candidates or [],
+                    created_at_iso=datetime.now().isoformat(timespec="seconds")
+                )
+                st.session_state["last_proposal_id"] = proposal_id
+                st.info(f"ドラフト提案を保存しました（ID: {proposal_id[:8]}…）")
+            except Exception as e:
+                st.warning(f"ドラフト保存に失敗しました: {e}")
+
+    # ====================== 2. 提案スライド生成 ======================
+    st.subheader("2. 提案スライド生成")
     st.divider()
 
-
-    # 初期表示（前回の状態を反映）
-    _render_issues_block(st.session_state.get("analyzed_issues") or [], issues_placeholder)
-    _render_candidates_block(st.session_state.get("product_candidates") or [], candidates_placeholder)
-
-    st.divider()
-
-    # ====================== 2. スライド生成 ======================
-    # テンプレートの添付
     tmpl_file = st.file_uploader(
         "テンプレート（.pptx）を添付（任意）",
         type=["pptx"],
         key="slide_template_uploader",
-        help="添付が無い場合は既定テンプレートを使用します"
+        help="未添付の場合は既定テンプレートを使用します"
     )
 
     # セッションへ保持
@@ -1080,14 +898,11 @@ def render_slide_generation_page():
         st.session_state.slide_template_name = tmpl_file.name
         st.success(f"テンプレートを受け付けました：{tmpl_file.name}")
     else:
-        # 既に前回アップロード済みなら名前だけ表示
         current = st.session_state.get("slide_template_name")
         if current:
             st.caption(f"現在のテンプレート：{current}（アップロード済みを使用）")
         else:
             st.caption("テンプレート未添付：既定テンプレートを使用します")
-
-    st.subheader("2. 提案スライド生成")
 
     row_l, row_r = st.columns([8, 2], vertical_alignment="center")
     with row_l:
@@ -1095,6 +910,7 @@ def render_slide_generation_page():
             "概説（任意）",
             value=st.session_state.slide_overview or "",
             placeholder="例：在庫最適化を中心に、需要予測と補充計画の連携を提案…",
+            label_visibility="collapsed",
         )
     with row_r:
         gen_btn = st.button("生成", type="primary", use_container_width=True)
@@ -1103,10 +919,10 @@ def render_slide_generation_page():
         if not company_internal.strip():
             st.error("企業が選択されていません。")
         elif not st.session_state.product_candidates:
-            st.error("提案商品がありません。先に「提案商品を出力」を押してください。")
+            st.error("提案候補がありません。先に『商品提案を作成』を押してください。")
         else:
-            selected = list(st.session_state.product_candidates or [])  # 全提案商品を採用
-            
+            selected = list(st.session_state.product_candidates or [])  # 全候補を採用
+
             # 下書きの作成
             outline = _make_outline_preview(
                 company_internal,
@@ -1115,7 +931,7 @@ def render_slide_generation_page():
                 st.session_state.slide_overview or "",
             )
             st.session_state.slide_outline = outline
-            
+
             # プレゼンテーション生成
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
@@ -1125,11 +941,11 @@ def render_slide_generation_page():
                     print(f"  GPT API: {st.session_state.slide_use_gpt_api}")
                     print(f"  TAVILY API: {st.session_state.slide_use_tavily_api}")
                     print(f"  TAVILY使用回数: {st.session_state.slide_tavily_uses}")
-                    
+
                     # チャット履歴の取得
                     print("📚 チャット履歴取得中...")
                     chat_history = _gather_messages_context(
-                        item_id, 
+                        item_id,
                         st.session_state.slide_history_reference_count
                     )
                     print(f"  チャット履歴長: {len(chat_history)}文字")
@@ -1146,7 +962,8 @@ def render_slide_generation_page():
                             uploaded_template_path = tmp.name
                             print(f"  📎 アップロードテンプレ使用: {uploaded_template_path}")
 
-                        generator = (NewSlideGenerator(template_path=uploaded_template_path) if uploaded_template_path else NewSlideGenerator())
+                        generator = (NewSlideGenerator(template_path=uploaded_template_path)
+                                     if uploaded_template_path else NewSlideGenerator())
                         print("✅ NewSlideGenerator初期化完了")
                     finally:
                         if uploaded_template_path and os.path.exists(uploaded_template_path):
@@ -1154,7 +971,7 @@ def render_slide_generation_page():
                                 os.remove(uploaded_template_path)
                             except Exception:
                                 pass
-                    
+
                     # 提案課題の取得
                     print("🔍 提案課題取得中...")
                     proposal_issues = []
@@ -1162,9 +979,8 @@ def render_slide_generation_page():
                         proposal_issues = _get_proposal_issues_from_db(st.session_state["last_proposal_id"])
                     else:
                         proposal_issues = st.session_state.get("analyzed_issues", [])
-                    
                     print(f"  提案課題数: {len(proposal_issues)}")
-                    
+
                     print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
                         project_name=company_internal,  # 案件名として企業名を使用
@@ -1177,17 +993,14 @@ def render_slide_generation_page():
                         use_gpt=st.session_state.slide_use_gpt_api,
                         tavily_uses=st.session_state.slide_tavily_uses
                     )
-                    
+
                     # ダウンロードボタンの表示
                     print("✅ プレゼンテーション生成完了")
                     print(f"  生成されたデータサイズ: {len(pptx_data)} バイト")
-                    
                     st.success("プレゼンテーションが生成されました！")
-                    
-                    # ファイル名の生成
+
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"{company_internal}_提案書_{timestamp}.pptx"
-                    
                     st.download_button(
                         label="📥 プレゼンテーションをダウンロード",
                         data=pptx_data,
@@ -1196,13 +1009,13 @@ def render_slide_generation_page():
                         use_container_width=True,
                         type="primary"
                     )
-                    
+
                 except Exception as e:
-                    print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     print(f"❌ Streamlit: プレゼンテーション生成でエラーが発生: {e}")
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")
 
+    # 下書きプレビュー
     if st.session_state.slide_outline:
         with st.expander("下書きプレビュー（JSON）", expanded=True):
             st.json(st.session_state.slide_outline)

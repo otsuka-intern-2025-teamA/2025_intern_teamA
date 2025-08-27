@@ -143,52 +143,46 @@ class TemplateProcessor:
             print(f"⚠️ 警告: 変数 {placeholder} の値が空です。スキップします。")
             return 0
         
-        # 元のフォーマット情報を保存
-        original_formats = []
+        replacement_count = 0
+        
+        # 段落ごとに処理
         for paragraph in text_frame.paragraphs:
-            for run in paragraph.runs:
-                if placeholder in run.text:
-                    # フォーマット情報を保存
-                    format_info = {
-                        'font_name': run.font.name,
-                        'font_size': run.font.size,
-                        'font_bold': run.font.bold,
-                        'font_italic': run.font.italic,
-                        'font_color': run.font.color.rgb if (run.font.color and hasattr(run.font.color, 'rgb') and run.font.color.rgb) else None,
-                        'text': run.text
-                    }
-                    original_formats.append(format_info)
+            if placeholder in paragraph.text:
+                # 段落内の各ラン（テキストの一部）を処理
+                for run in paragraph.runs:
+                    if placeholder in run.text:
+                        # フォーマット情報を保存
+                        original_font = run.font
+                        font_info = {
+                            "name": original_font.name,
+                            "size": original_font.size,
+                            "bold": original_font.bold,
+                            "italic": original_font.italic,
+                            "underline": original_font.underline,
+                            "color": original_font.color.rgb if hasattr(original_font.color, 'rgb') and original_font.color.rgb else None,
+                        }
+                        
+                        # テキストを置換
+                        run.text = run.text.replace(placeholder, value)
+                        
+                        # フォーマットを復元
+                        if font_info["name"]:
+                            run.font.name = font_info["name"]
+                        if font_info["size"]:
+                            run.font.size = font_info["size"]
+                        if font_info["bold"] is not None:
+                            run.font.bold = font_info["bold"]
+                        if font_info["italic"] is not None:
+                            run.font.italic = font_info["italic"]
+                        if font_info["underline"] is not None:
+                            run.font.underline = font_info["underline"]
+                        if font_info["color"] and hasattr(run.font.color, 'rgb'):
+                            run.font.color.rgb = font_info["color"]
+                        
+                        replacement_count += 1
+                        break  # この段落での置換は完了
         
-        # テキストを置換
-        text_frame.text = text_frame.text.replace(placeholder, value)
-        
-        # フォーマットを復元
-        if original_formats:
-            # 新しいテキストの長さに合わせてフォーマットを調整
-            new_text = text_frame.text
-            current_pos = 0
-            
-            for format_info in original_formats:
-                # 置換されたテキストの位置を特定
-                if format_info['text'] in new_text:
-                    # 該当する部分にフォーマットを適用
-                    for paragraph in text_frame.paragraphs:
-                        for run in paragraph.runs:
-                            if current_pos < len(new_text):
-                                # フォーマットを適用
-                                if format_info['font_name']:
-                                    run.font.name = format_info['font_name']
-                                if format_info['font_size']:
-                                    run.font.size = format_info['font_size']
-                                if format_info['font_bold'] is not None:
-                                    run.font.bold = format_info['font_bold']
-                                if format_info['font_italic'] is not None:
-                                    run.font.italic = format_info['font_italic']
-                                if format_info['font_color']:
-                                    run.font.color.rgb = format_info['font_color']
-                                current_pos += len(run.text)
-        
-        return 1
+        return replacement_count
     
     def _process_table(self, table, variables: dict[str, str], preserve_formatting: bool) -> int:
         """テーブル内の変数を処理"""

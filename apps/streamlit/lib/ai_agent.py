@@ -191,7 +191,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B提案の専門家です。簡潔で実用的なアジェンダを作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=200
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -239,7 +239,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたは商談履歴の要約専門家です。簡潔で要点を押さえた要約を作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -286,7 +286,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B課題分析の専門家です。具体的で実用的な問題分析を行ってください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -331,7 +331,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B提案の専門家です。企業の課題解決に焦点を当てた提案概要を作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -397,7 +397,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたは製品価格推定の専門家です。現実的な市場価格を提示してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=100
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content
@@ -438,7 +438,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B製品提案の専門家です。企業の課題解決に焦点を当てた選択理由を作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=200
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content
@@ -479,7 +479,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B導入効果分析の専門家です。具体的で実現可能な効果を説明してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -529,7 +529,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B導入計画の専門家です。現実的で実行可能なスケジュールを作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
@@ -563,7 +563,7 @@ class AIAgent:
                     {"role": "system", "content": "あなたはB2B提案後のアクション計画の専門家です。具体的で実行可能なアクションを提案してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""

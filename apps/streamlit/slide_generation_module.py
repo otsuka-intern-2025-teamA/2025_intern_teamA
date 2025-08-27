@@ -17,6 +17,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -74,6 +75,8 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("_emb_cache", {})
     # 表示用：課題分析結果（UIで見せるだけ。選定ロジックは従来通り）
     ss.setdefault("analyzed_issues", [])
+    ss.setdefault("slide_template_bytes", None)
+    ss.setdefault("slide_template_name", None)
 
 
 # =========================
@@ -851,14 +854,26 @@ def render_slide_generation_page():
     st.divider()
 
     # ====================== 2. スライド生成 ======================
-    # テンプレート情報の表示
-    if st.button("📋 テンプレート情報を表示", help="使用するテンプレートの詳細情報を表示します"):
-        try:
-            generator = NewSlideGenerator()
-            template_info = generator.get_template_info()
-            st.json(template_info)
-        except Exception as e:
-            st.error(f"テンプレート情報の取得でエラーが発生しました: {e}")
+    # テンプレートの添付
+    tmpl_file = st.file_uploader(
+        "テンプレート（.pptx）を添付（任意）",
+        type=["pptx"],
+        key="slide_template_uploader",
+        help="添付が無い場合は既定テンプレートを使用します"
+    )
+
+    # セッションへ保持
+    if tmpl_file is not None:
+        st.session_state.slide_template_bytes = tmpl_file.getvalue()
+        st.session_state.slide_template_name = tmpl_file.name
+        st.success(f"テンプレートを受け付けました：{tmpl_file.name}")
+    else:
+        # 既に前回アップロード済みなら名前だけ表示
+        current = st.session_state.get("slide_template_name")
+        if current:
+            st.caption(f"現在のテンプレート：{current}（アップロード済みを使用）")
+        else:
+            st.caption("テンプレート未添付：既定テンプレートを使用します")
 
     st.subheader("2. スライド生成")
 
@@ -906,10 +921,27 @@ def render_slide_generation_page():
                         st.session_state.slide_history_reference_count
                     )
                     print(f"  チャット履歴長: {len(chat_history)}文字")
-                    
-                    print("🤖 NewSlideGenerator初期化中...")
-                    generator = NewSlideGenerator()
-                    print("✅ NewSlideGenerator初期化完了")
+                    print("🤖 NewSlideGenerator初期化中.")
+
+                    # アップロード済みテンプレがあれば一時ファイルに保存して使用
+                    uploaded_template_path = None
+                    try:
+                        if st.session_state.get("slide_template_bytes"):
+                            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
+                            tmp.write(st.session_state["slide_template_bytes"])
+                            tmp.flush()
+                            tmp.close()
+                            uploaded_template_path = tmp.name
+                            print(f"  📎 アップロードテンプレ使用: {uploaded_template_path}")
+
+                        generator = (NewSlideGenerator(template_path=uploaded_template_path) if uploaded_template_path else NewSlideGenerator())
+                        print("✅ NewSlideGenerator初期化完了")
+                    finally:
+                        if uploaded_template_path and os.path.exists(uploaded_template_path):
+                            try:
+                                os.remove(uploaded_template_path)
+                            except Exception:
+                                pass
                     
                     # 提案課題の取得
                     print("🔍 提案課題取得中...")

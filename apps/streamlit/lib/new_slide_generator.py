@@ -15,36 +15,36 @@ from .template_processor import TemplateProcessor, create_temp_template, cleanup
 
 class NewSlideGenerator:
     """新スライド生成システムのメインクラス"""
-    
     def __init__(self, template_path: str = None):
         """
         スライド生成システムの初期化
         
         Args:
-            template_path: テンプレートファイルのパス（Noneの場合はデフォルトパス）
+            template_path: テンプレートファイルのパス（Noneの場合はデフォルトパス探索）
         """
         # テンプレートパスの設定
         if template_path is None:
-            # プロジェクトルートからの相対パス
             project_root = Path(__file__).parent.parent.parent
-            template_path = project_root / "template" / "proposal_template.pptx"
-            
-            # パスの存在確認とデバッグ
-            print(f"🔍 テンプレートパス確認:")
-            print(f"  現在のファイル: {__file__}")
-            print(f"  プロジェクトルート: {project_root}")
-            print(f"  テンプレートパス: {template_path}")
-            print(f"  テンプレート存在: {template_path.exists()}")
-            
-            # 代替パスの試行（現在のディレクトリからの相対パス）
-            if not template_path.exists():
-                alt_path = Path("template") / "proposal_template.pptx"
-                if alt_path.exists():
-                    template_path = alt_path
-                    print(f"✅ 代替パスを使用: {template_path}")
-                else:
-                    print(f"⚠️ 代替パスも存在しません: {alt_path}")
-        
+            # ★ 探索順を強化：data/template → template → カレント相対
+            candidates = [
+                project_root / "data" / "template" / "proposal_template.pptx",
+                project_root / "template" / "proposal_template.pptx",
+                Path("data") / "template" / "proposal_template.pptx",
+                Path("template") / "proposal_template.pptx",
+            ]
+            template_path = None
+            print("🔍 テンプレート探索候補:")
+            for p in candidates:
+                print(f"  - {p} : exists={p.exists()}")
+                if p.exists():
+                    template_path = p
+                    break
+            if template_path is None:
+                raise FileNotFoundError(
+                    "テンプレートファイルが見つかりません。"
+                    "data/template/proposal_template.pptx または template/ 配下に配置してください。"
+                )
+
         self.template_path = Path(template_path)
         if not self.template_path.exists():
             raise FileNotFoundError(f"テンプレートファイルが見つかりません: {template_path}")

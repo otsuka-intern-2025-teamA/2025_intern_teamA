@@ -17,9 +17,14 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import tempfile
 
 import numpy as np
 import pandas as pd
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(".env", override=True)
 
 # APIクライアント（企業分析のチャット履歴取得に使用）
 from lib.api import api_available, get_api_client
@@ -35,9 +40,6 @@ from lib.styles import (
     render_slide_generation_title,  # タイトル描画（h1.slide-generation-title）
 )
 
-# LLM クライアント（Azure / OpenAI どちらでもOK）
-from openai import AzureOpenAI, OpenAI
-
 import streamlit as st
 
 # 画像/データパス
@@ -47,7 +49,7 @@ ICON_PATH = PROJECT_ROOT / "data" / "images" / "otsuka_icon.png"
 PRODUCTS_DIR = PROJECT_ROOT / "data" / "csv" / "products"
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "images" / "product_placeholder.png"
 
-# --- スタイル / コンポーネント（既存の自作モジュールに合わせて）
+# --- 新スライド生成システム ---
 from lib.new_slide_generator import NewSlideGenerator
 
 
@@ -64,44 +66,54 @@ def _ensure_session_defaults() -> None:
     ss.setdefault("slide_outline", None)
     ss.setdefault("slide_overview", "")
     ss.setdefault("slide_history_reference_count", 3)  # 直近N往復参照（デフォ3）
-    ss.setdefault("slide_top_k", 10)                   # 提案件数（デフォ10）
+    ss.setdefault("slide_top_k", 1)                   # 提案件数（デフォ1）
     ss.setdefault("slide_products_dataset", "Auto")    # 商材データセット選択
     ss.setdefault("slide_use_tavily_api", True)        # TAVILY API使用フラグ
     ss.setdefault("slide_use_gpt_api", True)           # GPT API使用フラグ
-    ss.setdefault("slide_tavily_uses", 2)              # 製品あたりのTAVILY API呼び出し回数
+    ss.setdefault("slide_tavily_uses", 1)              # 製品あたりのTAVILY API呼び出し回数
     # 埋め込み検索用キャッシュ
     ss.setdefault("_emb_cache", {})
     # 表示用：課題分析結果（UIで見せるだけ。選定ロジックは従来通り）
     ss.setdefault("analyzed_issues", [])
+    ss.setdefault("slide_template_bytes", None)
+    ss.setdefault("slide_template_name", None)
 
 
 # =========================
-# LLM クライアント準備（Azure / OpenAI 自動判定）
+# 新スライド生成システム用のヘルパー関数
 # =========================
-def _get_chat_client():
-    """
-    - Azure: USE_AZURE=true or AZURE_OPENAI_ENDPOINT があれば使用
-      必須: AZURE_OPENAI_API_KEY, AZURE_OPENAI_CHAT_DEPLOYMENT
-      任意: API_VERSION (default 2024-06-01)
-    - OpenAI: OPENAI_API_KEY, DEFAULT_MODEL (任意・既定 gpt-4o-mini)
-    """
-    use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
-    if use_azure:
-        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        api_key = os.getenv("AZURE_OPENAI_API_KEY")
-        api_version = os.getenv("API_VERSION", "2024-06-01")
-        deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
-        if not (endpoint and api_key and deployment):
-            raise RuntimeError("Azure設定不足: AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY / AZURE_OPENAI_CHAT_DEPLOYMENT")
-        client = AzureOpenAI(azure_endpoint=endpoint, api_key=api_key, api_version=api_version)
-        model = deployment
-    else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY が未設定です。")
-        client = OpenAI(api_key=api_key)
-        model = os.getenv("DEFAULT_MODEL", "gpt-4o-mini")
-    return client, model
+def _get_proposal_issues_from_db(proposal_id: str) -> list[dict[str, Any]]:
+    """データベースから提案課題を取得"""
+    try:
+        import sqlite3
+        db_path = PROJECT_ROOT / "data" / "sqlite" / "app.db"
+        if not db_path.exists():
+            return []
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT idx, issue, weight, keywords_json 
+                FROM proposal_issues 
+                WHERE proposal_id = ? 
+                ORDER BY idx
+            """, (proposal_id,))
+            
+            rows = cursor.fetchall()
+            issues = []
+            for row in rows:
+                import json
+                keywords = json.loads(row[3]) if row[3] else []
+                issues.append({
+                    "issue": row[1],
+                    "weight": row[2],
+                    "keywords": keywords
+                })
+            
+            return issues
+    except Exception as e:
+        print(f"提案課題取得エラー: {e}")
+        return []
 
 
 # =========================
@@ -391,7 +403,7 @@ def _fallback_rank_products(
 
 
 # =========================
-# LLM で Top-K 選抜＋理由生成 / 80字要約
+# 製品概要生成（簡易版）
 # =========================
 def _extract_json(s: str) -> dict[str, Any]:
     s = (s or "").strip()
@@ -606,165 +618,43 @@ def _resolve_product_image_src(rec: dict[str, Any]) -> str | None:
     return None
 
 # =========================
-# 追加: 課題分析・埋め込み索引・類似検索
+# 新スライド生成システム用のヘルパー関数（続き）
 # =========================
-
-def _analyze_pain_points(notes: str, messages_ctx: str, uploads_text: str = "") -> list[dict[str, Any]]:
+def _analyze_pain_points_simple(notes: str, messages_ctx: str, uploads_text: str = "") -> list[dict[str, Any]]:
     """
-    商談メモ・会話文脈・アップロード資料（抽出テキスト）から課題を抽出。
-    返り値: [{"issue": str, "weight": float, "keywords": List[str]}, ...]
-    フォールバック時は汎用的な課題を返す。
+    簡易版課題分析（LLMを使用しない）
+    商談メモ・会話文脈・アップロード資料から基本的な課題を抽出
     """
-    issues: list[dict[str, Any]] = []
-    try:
-        client, chat_model = _get_chat_client()
-        sys = "あなたはB2B提案の課題分析アシスタントです。日本語でJSONのみ出力してください。"
-
-        uploads_section = f"\n\n資料抜粋:\n{uploads_text}" if uploads_text else ""
-
-        user = f"""以下の情報から、解決したい課題を3〜6件抽出し、各課題に重み(0〜1)と関連キーワード(3〜6語)を付けてJSONで出力してください。
-- 課題は具体的に表現する
-- 重みは合計が約1になるよう相対調整
-- 引用可能なら資料由来の観点も反映（ただし機密や個人情報は抽象化）
-
-商談メモ:
-{notes}
-
-会話文脈:
-{messages_ctx}{uploads_section}
-"""
-        resp = client.chat.completions.create(
-            model=chat_model,
-            messages=[
-                {"role": "system", "content": sys},
-                {"role": "user", "content": user},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-        )
-        txt = resp.choices[0].message.content or ""
-        data = _extract_json(txt)
-        cand = data.get("issues") if isinstance(data, dict) else data
-        if isinstance(cand, list):
-            for it in cand[:6]:
-                issue = str(it.get("issue") or "").strip()
-                if not issue:
-                    continue
-                weight = float(it.get("weight", 0.0))
-                keywords = [str(k).strip() for k in (it.get("keywords") or []) if str(k).strip()]
-                issues.append({"issue": issue[:80], "weight": max(0.0, min(1.0, weight)), "keywords": keywords[:6]})
-    except Exception:
-        pass
-    # フォールバック
-    if not issues:
-        issues = [
-            {"issue": "情報共有の改善", "weight": 0.34, "keywords": ["ナレッジ共有", "コミュニケーション", "ドキュメント"]},
-            {"issue": "コスト最適化", "weight": 0.33, "keywords": ["費用削減", "効率化", "自動化"]},
-            {"issue": "セキュリティ強化", "weight": 0.33, "keywords": ["アクセス管理", "監査", "権限"]},
-        ]
-    # 正規化
-    s = sum(x["weight"] for x in issues) or 1.0
-    for x in issues:
-        x["weight"] = float(x["weight"] / s)
-    return issues
-
-
-def _normalize_concat_row(row: pd.Series) -> str:
-    """name, category, tags, description を連結して正規化"""
-    s = f"{row.get('name','')} {row.get('category','')} {row.get('tags','')} {row.get('description','')}"
-    s = s.lower()
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
-def _embed_texts(client, texts: list[str], embed_model: str, is_azure: bool) -> np.ndarray:
-    """
-    Embedding API を呼び出しベクトルを返す。失敗時は例外を送出。
-    """
-    try:
-        # Azure でも OpenAI でも embeddings.create は同じ形で呼べる
-        resp = client.embeddings.create(model=embed_model, input=texts)
-        vecs = np.array([d.embedding for d in resp.data], dtype="float32")
-        return vecs
-    except Exception as e:
-        raise RuntimeError(f"embedding failed: {e}")
-
-
-def _build_products_index(dataset: str, df: pd.DataFrame, client, embed_model: str, is_azure: bool) -> dict[str, Any]:
-    """
-    products DataFrame から埋め込み索引用インデックスを構築しキャッシュする。
-    Cache key: dataset_name + length + embed_model
-    """
-    key = f"{dataset}:{len(df)}:{embed_model}"
-    cache = st.session_state.get("_emb_cache", {})
-    if key in cache:
-        return cache[key]
-    # テキスト生成
-    texts = [_normalize_concat_row(row) for _, row in df.iterrows()]
-    try:
-        vecs = _embed_texts(client, texts, embed_model, is_azure)
-        index = {"vecs": vecs, "ids": df["id"].astype(str).tolist(), "df": df, "model": embed_model}
-    except Exception:
-        # フォールバック: TF-IDF
-        try:
-            from sklearn.feature_extraction.text import TfidfVectorizer
-            vectorizer = TfidfVectorizer(min_df=1)
-            vecs = vectorizer.fit_transform(texts)
-            index = {"vecs": vecs, "ids": df["id"].astype(str).tolist(), "df": df, "model": "tfidf", "vectorizer": vectorizer}
-        except Exception:
-            index = {"vecs": None, "ids": [], "df": df, "model": None}
-    cache[key] = index
-    st.session_state._emb_cache = cache
-    return index
-
-
-def _retrieve_by_issues(index: dict[str, Any], issues: list[dict[str, Any]], client, embed_model: str, is_azure: bool, top_pool: int) -> list[dict[str, Any]]:
-    """
-    課題の重み付きベクトルで類似検索し、上位 top_pool 件を返す。
-    index["vecs"] が None または TF-IDF の場合は空リストを返す。
-    """
-    if not issues or not index or index.get("vecs") is None:
-        return []
-    vecs = index["vecs"]
-    # TF-IDF の場合は類似検索を行わない
-    if hasattr(vecs, "toarray") or index.get("model") == "tfidf":
-        return []
-    # クエリベクトル
-    queries = [f"{it['issue']} {' '.join(it.get('keywords') or [])}".strip() for it in issues]
-    weights = np.array([float(it.get("weight", 0.0)) for it in issues], dtype="float32")
-    try:
-        q_embs = _embed_texts(client, queries, embed_model, is_azure)
-        q = (weights[:, None] * q_embs).sum(axis=0, keepdims=True)
-        # 正規化
-        v_norm = vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-9)
-        q_norm = q / (np.linalg.norm(q, axis=1, keepdims=True) + 1e-9)
-        sims = np.dot(q_norm, v_norm.T).ravel()
-        order = sims.argsort()[::-1][:max(1, top_pool)]
-        out = []
-        for idx_pos in order:
-            rid = index["ids"][idx_pos]
-            row = index["df"].iloc[idx_pos].to_dict()
-            out.append({
-                "id": row.get("id"),
-                "name": row.get("name"),
-                "category": row.get("category"),
-                "price": row.get("price"),
-                "description": row.get("description"),
-                "tags": row.get("tags"),
-                "image_url": row.get("image_url"),
-                "image": row.get("image"),
-                "thumbnail": row.get("thumbnail"),
-                "source_csv": row.get("source_csv"),
-                "score": float(sims[idx_pos]),
-                "reason": f"課題と高類似 ({sims[idx_pos]:.3f})",
-            })
-        return out
-    except Exception:
-        return []
+    issues = []
+    
+    # 基本的な課題パターン
+    basic_issues = [
+        {"issue": "業務効率化", "weight": 0.4, "keywords": ["効率化", "自動化", "生産性"]},
+        {"issue": "コスト最適化", "weight": 0.3, "keywords": ["費用削減", "最適化", "コスト"]},
+        {"issue": "情報管理改善", "weight": 0.3, "keywords": ["情報共有", "管理", "システム"]}
+    ]
+    
+    # テキスト内容に基づいて重みを調整
+    all_text = f"{notes} {messages_ctx} {uploads_text}".lower()
+    
+    if "効率" in all_text or "生産性" in all_text:
+        basic_issues[0]["weight"] = 0.5
+        basic_issues[1]["weight"] = 0.25
+        basic_issues[2]["weight"] = 0.25
+    elif "コスト" in all_text or "費用" in all_text:
+        basic_issues[0]["weight"] = 0.25
+        basic_issues[1]["weight"] = 0.5
+        basic_issues[2]["weight"] = 0.25
+    elif "情報" in all_text or "管理" in all_text:
+        basic_issues[0]["weight"] = 0.25
+        basic_issues[1]["weight"] = 0.25
+        basic_issues[2]["weight"] = 0.5
+    
+    return basic_issues
 
 
 # =========================
-# 候補検索（CSV→粗選定→LLM選抜→LLM要約）
+# 候補検索（簡易版）
 # =========================
 def _search_product_candidates(
     company: str,
@@ -784,7 +674,7 @@ def _search_product_candidates(
     if df.empty:
         return []
 
-    # ★ 追加：アップロード資料からテキスト抽出
+    # アップロード資料からテキスト抽出
     uploads_text = _extract_text_from_uploads(uploaded_files) if uploaded_files else ""
 
     # 事前に計算済みの課題があればそれを使用。なければここで抽出。
@@ -793,33 +683,17 @@ def _search_product_candidates(
     else:
         issues = _analyze_pain_points(meeting_notes or "", ctx or "", uploads_text)
 
-    # 埋め込みモデルと環境判定
-    use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
-    embed_model = os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT") if use_azure else os.getenv("EMBED_MODEL", "text-embedding-3-small")
-
-    # LLM クライアント取得
-    client, _ = _get_chat_client()
-
-    # 埋め込みインデックス構築
-    index = _build_products_index(dataset, df, client, embed_model, use_azure)
-
-    # 課題ドリブン粗候補検索（Top-pool）
+    # 語句一致で粗選定
     top_pool = max(40, top_k * 4)
-    pool = _retrieve_by_issues(index, issues, client, embed_model, use_azure, top_pool)
-    # フォールバック：語句一致で粗選定
-    if not pool:
-        pool = _fallback_rank_products(meeting_notes, ctx, df, top_pool=max(40, top_k * 3))
+    pool = _fallback_rank_products(meeting_notes, ctx, df, top_pool=top_pool)
 
-    # LLM で精選（課題付）
-    try:
-        selected = _llm_pick_products(pool, top_k, company, meeting_notes, ctx, issues)
-        if not selected:
-            selected = pool[:top_k]
-    except Exception:
-        selected = pool[:top_k]
-
-    # 各製品の 80字概要を LLM 要約（失敗時は短縮）
-    _summarize_overviews_llm(selected)
+    # 上位K件を選択
+    selected = pool[:top_k]
+    
+    # 各製品の概要を生成
+    for product in selected:
+        product["overview"] = _generate_product_overview(product)
+    
     return selected
 
 
@@ -1034,7 +908,7 @@ def render_slide_generation_page():
         st.text_input("企業名", value=company_internal, key="slide_company_input", disabled=True)
 
         # --- ここから“数字はすべて一覧選択型” & Session State 既定値のみ使用 ---
-        st.selectbox("提案件数", options=list(range(3, 21)), key="slide_top_k")
+        st.selectbox("提案件数", options=list(range(1, 11)), key="slide_top_k")
 
         st.selectbox(
             "履歴参照件数（往復）",
@@ -1192,14 +1066,26 @@ def render_slide_generation_page():
     st.divider()
 
     # ====================== 2. スライド生成 ======================
-    # テンプレート情報の表示
-    if st.button("📋 テンプレート情報を表示", help="使用するテンプレートの詳細情報を表示します"):
-        try:
-            generator = NewSlideGenerator()
-            template_info = generator.get_template_info()
-            st.json(template_info)
-        except Exception as e:
-            st.error(f"テンプレート情報の取得でエラーが発生しました: {e}")
+    # テンプレートの添付
+    tmpl_file = st.file_uploader(
+        "テンプレート（.pptx）を添付（任意）",
+        type=["pptx"],
+        key="slide_template_uploader",
+        help="添付が無い場合は既定テンプレートを使用します"
+    )
+
+    # セッションへ保持
+    if tmpl_file is not None:
+        st.session_state.slide_template_bytes = tmpl_file.getvalue()
+        st.session_state.slide_template_name = tmpl_file.name
+        st.success(f"テンプレートを受け付けました：{tmpl_file.name}")
+    else:
+        # 既に前回アップロード済みなら名前だけ表示
+        current = st.session_state.get("slide_template_name")
+        if current:
+            st.caption(f"現在のテンプレート：{current}（アップロード済みを使用）")
+        else:
+            st.caption("テンプレート未添付：既定テンプレートを使用します")
 
     st.subheader("2. 提案スライド生成")
 
@@ -1247,10 +1133,37 @@ def render_slide_generation_page():
                         st.session_state.slide_history_reference_count
                     )
                     print(f"  チャット履歴長: {len(chat_history)}文字")
+                    print("🤖 NewSlideGenerator初期化中.")
+
+                    # アップロード済みテンプレがあれば一時ファイルに保存して使用
+                    uploaded_template_path = None
+                    try:
+                        if st.session_state.get("slide_template_bytes"):
+                            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
+                            tmp.write(st.session_state["slide_template_bytes"])
+                            tmp.flush()
+                            tmp.close()
+                            uploaded_template_path = tmp.name
+                            print(f"  📎 アップロードテンプレ使用: {uploaded_template_path}")
+
+                        generator = (NewSlideGenerator(template_path=uploaded_template_path) if uploaded_template_path else NewSlideGenerator())
+                        print("✅ NewSlideGenerator初期化完了")
+                    finally:
+                        if uploaded_template_path and os.path.exists(uploaded_template_path):
+                            try:
+                                os.remove(uploaded_template_path)
+                            except Exception:
+                                pass
                     
-                    print("🤖 NewSlideGenerator初期化中...")
-                    generator = NewSlideGenerator()
-                    print("✅ NewSlideGenerator初期化完了")
+                    # 提案課題の取得
+                    print("🔍 提案課題取得中...")
+                    proposal_issues = []
+                    if st.session_state.get("last_proposal_id"):
+                        proposal_issues = _get_proposal_issues_from_db(st.session_state["last_proposal_id"])
+                    else:
+                        proposal_issues = st.session_state.get("analyzed_issues", [])
+                    
+                    print(f"  提案課題数: {len(proposal_issues)}")
                     
                     print("🎯 プレゼンテーション生成実行中...")
                     pptx_data = generator.create_presentation(
@@ -1259,6 +1172,7 @@ def render_slide_generation_page():
                         meeting_notes=st.session_state.slide_meeting_notes or "",
                         chat_history=chat_history,
                         products=selected,
+                        proposal_issues=proposal_issues,
                         use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,
                         tavily_uses=st.session_state.slide_tavily_uses

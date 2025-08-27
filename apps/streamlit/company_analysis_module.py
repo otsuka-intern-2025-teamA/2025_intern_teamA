@@ -187,7 +187,7 @@ def render_company_analysis_page():
 
         # 「総参照URL件数」=「生成クエリ数」
         top_k = st.selectbox(
-            "総参照URL件数（= クエリ数）",
+            "総参照URL件数",
             options=list(range(1, 11)),
             index=5,
             key="top_k_input",
@@ -196,7 +196,7 @@ def render_company_analysis_page():
 
         st.session_state.setdefault("history_reference_count", 3)
         history_count = st.selectbox(
-            "直近の履歴を何件参照する",
+            "直近のチャット履歴の参照数",
             options=list(range(1, 11)),
             key="history_reference_count",
             help="チャット回答時に過去の履歴を文脈として参照します",
@@ -305,8 +305,8 @@ def render_company_analysis_page():
 
                         # ② Web検索（各クエリ→最大N件取得して1件だけ選ぶ）
                         #    1クエリ=1URLにするため count は少し多め(例:3)で取得し、その中から未使用URLを選出
-                        N_CANDIDATES_PER_QUERY = 3
-                        status.update(label="🌐 Web検索中…（各クエリから1件選定）", state="running")
+                        N_CANDIDATES_PER_QUERY = 2
+                        status.update(label="🌐 Web検索中…", state="running")
                         hits_by_query: list[list[SearchHit]] = []
                         prog = st.progress(0)
                         for i, q in enumerate(queries):
@@ -319,13 +319,13 @@ def render_company_analysis_page():
                         final_hits = _pick_one_per_query(hits_by_query, target_k=k)
 
                         # ログ表示
-                        status.write("—— 採用URL（1クエリ=1件）——")
+                        status.write("—— 採用URL——")
                         if final_hits:
                             for idx, h in enumerate(final_hits, 1):
                                 u = (h.url or "").strip()
                                 t = (h.title or "").strip() or u
                                 status.write(f"{idx}. [{t}]({u})")
-                        status.write(f"参照URL: {len(final_hits)} / 指定 {k}（1クエリ=1URL）")
+                        status.write(f"参照URL: {len(final_hits)} / 指定 {k}")
 
                         if len(final_hits) == 0:
                             status.update(label="⚠️ 検索結果が見つかりませんでした", state="error")

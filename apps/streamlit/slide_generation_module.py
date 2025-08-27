@@ -879,7 +879,6 @@ def render_slide_generation_page():
                     created_at_iso=datetime.now().isoformat(timespec="seconds")
                 )
                 st.session_state["last_proposal_id"] = proposal_id
-                st.info(f"ドラフト提案を保存しました（ID: {proposal_id[:8]}…）")
             except Exception as e:
                 st.warning(f"ドラフト保存に失敗しました: {e}")
 

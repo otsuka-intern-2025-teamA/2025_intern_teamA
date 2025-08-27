@@ -305,14 +305,14 @@ def render_company_analysis_page():
 
                         # ② Web検索（各クエリ→最大N件取得して1件だけ選ぶ）
                         #    1クエリ=1URLにするため count は少し多め(例:3)で取得し、その中から未使用URLを選出
-                        N_CANDIDATES_PER_QUERY = 2
+                        N_CANDIDATES_PER_QUERY = 3
                         status.update(label="🌐 Web検索中…", state="running")
                         hits_by_query: list[list[SearchHit]] = []
                         prog = st.progress(0)
                         for i, q in enumerate(queries):
                             hits_for_q = run_search(q, count=N_CANDIDATES_PER_QUERY)
                             hits_by_query.append(hits_for_q or [])
-                            status.write(f"クエリ{i+1}: {q} … {len(hits_for_q or [])}件")
+                            status.write(f"クエリ{i+1}: {q} … 1件選定")
                             prog.progress((i + 1) / max(1, len(queries)))
 
                         # 1クエリ=1URL の選定

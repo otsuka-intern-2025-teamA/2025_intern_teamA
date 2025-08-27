@@ -830,40 +830,42 @@ def render_slide_generation_page():
         if not company_internal.strip():
             st.error("企業が選択されていません。案件一覧から企業を選んでください。")
         else:
-            # 1/3 課題抽出（左タイトル直下に進捗を表示）
-            issues_msg_ph.markdown("1/3 課題を抽出しています")
-            issues_body_ph.empty()  # いったん本文は空に
-            ctx_for_view = _gather_messages_context(item_id, int(st.session_state.slide_history_reference_count))
-            uploads_text_for_view = _extract_text_from_uploads(st.session_state.uploaded_files_store) if st.session_state.uploaded_files_store else ""
-            issues_early = _analyze_pain_points(
-                st.session_state.slide_meeting_notes or "",
-                ctx_for_view or "",
-                uploads_text_for_view or ""
-            )
-            st.session_state.analyzed_issues = issues_early
+            with issues_msg_ph.container():                 # ← 場所を固定
+                with st.spinner("1/2 課題を抽出しています..."):
+                    # 1/2 課題抽出（左タイトル直下に進捗を表示）
+                    issues_body_ph.empty()  # いったん本文は空に
+                    ctx_for_view = _gather_messages_context(item_id, int(st.session_state.slide_history_reference_count))
+                    uploads_text_for_view = _extract_text_from_uploads(st.session_state.uploaded_files_store) if st.session_state.uploaded_files_store else ""
+                    issues_early = _analyze_pain_points(
+                        st.session_state.slide_meeting_notes or "",
+                        ctx_for_view or "",
+                        uploads_text_for_view or ""
+                    )
+                    st.session_state.analyzed_issues = issues_early
+            pass
             # 結果を描画 → 進捗メッセージは消す
             issues_msg_ph.empty()
             _render_issues_body(issues_early, issues_body_ph)
 
-            # 2/3 候補選定（右タイトル直下で進捗を順に表示）
-            candidates_msg_ph.markdown("2/3 カタログと照合して提案候補を選定中")
-            candidates_body_ph.empty()
-            candidates = _search_product_candidates(
-                company=company_internal,
-                item_id=item_id,
-                meeting_notes=st.session_state.slide_meeting_notes or "",
-                top_k=int(st.session_state.slide_top_k),
-                history_n=int(st.session_state.slide_history_reference_count),
-                dataset=st.session_state.slide_products_dataset,
-                uploaded_files=st.session_state.uploaded_files_store,
-                issues_precomputed=issues_early,
-            )
-            st.session_state.product_candidates = candidates
-
-            # 3/3 描画中
-            candidates_msg_ph.markdown("3/3 提案候補カードを描画しています")
+            with candidates_msg_ph.container():                 # ← 場所を固定
+                with st.spinner("2/2 カタログと照合して提案候補を選定中..."):
+                    # 2/2 候補選定（右タイトル直下で進捗を順に表示）
+                    candidates_body_ph.empty()
+                    candidates = _search_product_candidates(
+                        company=company_internal,
+                        item_id=item_id,
+                        meeting_notes=st.session_state.slide_meeting_notes or "",
+                        top_k=int(st.session_state.slide_top_k),
+                        history_n=int(st.session_state.slide_history_reference_count),
+                        dataset=st.session_state.slide_products_dataset,
+                        uploaded_files=st.session_state.uploaded_files_store,
+                        issues_precomputed=issues_early,
+                    )
+                    st.session_state.product_candidates = candidates
+            pass
+            # 描画中
+            candidates_msg_ph.empty()
             _render_candidates_body(candidates, candidates_body_ph)
-            candidates_msg_ph.empty()  # 完了したら進捗を消す
 
             # ドラフト保存（従来どおり）
             try:

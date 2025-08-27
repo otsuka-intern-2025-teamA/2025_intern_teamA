@@ -1,1 +1,6 @@
-# Streamlit設定
+[theme]
+base="light"
+primaryColor="#E4192B"
+backgroundColor="#fafafa"
+textColor="#222"
+font = "Helvetica Neue"

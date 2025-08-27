@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 
 import streamlit as st
 
+# from apps.streamlit.const import HIDE_ST_STYLE
+# st.markdown(HIDE_ST_STYLE, unsafe_allow_html=True)
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "company_analysis" / ".env", override=False)
 
 # 画像ファイルのパス定義
@@ -461,10 +464,10 @@ else:
                         )
                         b1, b2 = st.columns(2)
                         with b1:
-                            if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True):
+                            if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True, type="secondary"):
                                 st.session_state.selected_project = p
                                 _switch_page("企業分析", p)
                         with b2:
-                            if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True):
+                            if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True, type="primary"):
                                 st.session_state.selected_project = p
                                 _switch_page("スライド作成", p)

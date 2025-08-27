@@ -625,7 +625,7 @@ def render_slide_generation_page():
 
             with st.spinner("AIエージェントがプレゼンテーションを生成中..."):
                 try:
-                    print(f"🚀 Streamlit: プレゼンテーション生成開始")
+                    print("🚀 Streamlit: プレゼンテーション生成開始")
                     print(f"  企業名: {company_internal}")
                     print(f"  製品数: {len(selected)}")
                     print(f"  GPT API: {st.session_state.slide_use_gpt_api}")

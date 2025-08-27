@@ -8,11 +8,8 @@
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from openai import AzureOpenAI
 from tavily import TavilyClient
@@ -60,11 +57,11 @@ class AIAgent:
         company_name: str,
         meeting_notes: str,
         chat_history: str,
-        products: List[Dict[str, Any]],
+        products: list[dict[str, Any]],
         use_gpt: bool = True,
         use_tavily: bool = True,
         tavily_uses: int = 2,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """プレゼンテーション変数の生成"""
         
         variables = {}
@@ -104,7 +101,7 @@ class AIAgent:
             variables[f"{prefix}NAME}}"] = product.get("name", "製品名未設定")
             variables[f"{prefix}CATEGORY}}"] = product.get("category", "カテゴリ未設定")
             variables[f"{prefix}PRICE}}"] = self._format_price(product.get("price"))
-            print(f"    💡 製品選択理由生成中...")
+            print("    💡 製品選択理由生成中...")
             product_reason = self._generate_product_reason(
                 product, company_name, meeting_notes, use_tavily, tavily_uses, use_gpt
             )
@@ -245,7 +242,7 @@ class AIAgent:
             print(f"問題仮説生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_proposal_summary(self, company_name: str, products: List[Dict[str, Any]], meeting_notes: str, use_gpt: bool) -> str:
+    def _generate_proposal_summary(self, company_name: str, products: list[dict[str, Any]], meeting_notes: str, use_gpt: bool) -> str:
         """提案サマリーの生成"""
         print(f"    📋 提案サマリー生成中... (GPT: {use_gpt})")
         if not use_gpt or not self.azure_client:
@@ -288,7 +285,7 @@ class AIAgent:
             print(f"提案サマリー生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_product_reason(self, product: Dict[str, Any], company_name: str, meeting_notes: str, use_tavily: bool, tavily_uses: int, use_gpt: bool) -> str:
+    def _generate_product_reason(self, product: dict[str, Any], company_name: str, meeting_notes: str, use_tavily: bool, tavily_uses: int, use_gpt: bool) -> str:
         """製品選択理由の生成"""
         print(f"      💡 製品選択理由生成中... (GPT: {use_gpt}, TAVILY: {use_tavily}, 使用回数: {tavily_uses})")
         if not use_gpt or not self.azure_client:
@@ -345,7 +342,7 @@ class AIAgent:
             print(f"製品選択理由生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_expected_impacts(self, products: List[Dict[str, Any]], company_name: str, use_gpt: bool) -> str:
+    def _generate_expected_impacts(self, products: list[dict[str, Any]], company_name: str, use_gpt: bool) -> str:
         """期待される効果の生成"""
         print(f"    🎯 期待される効果生成中... (GPT: {use_gpt})")
         if not use_gpt or not self.azure_client:
@@ -387,7 +384,7 @@ class AIAgent:
             print(f"期待される効果生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_schedule_plan(self, products: List[Dict[str, Any]], company_name: str, use_gpt: bool) -> str:
+    def _generate_schedule_plan(self, products: list[dict[str, Any]], company_name: str, use_gpt: bool) -> str:
         """スケジュール計画の生成"""
         print(f"    📅 スケジュール計画生成中... (GPT: {use_gpt})")
         if not use_gpt or not self.azure_client:
@@ -429,7 +426,7 @@ class AIAgent:
             print(f"スケジュール計画生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_next_actions(self, company_name: str, products: List[Dict[str, Any]], use_gpt: bool) -> str:
+    def _generate_next_actions(self, company_name: str, products: list[dict[str, Any]], use_gpt: bool) -> str:
         """次のアクションの生成"""
         print(f"    ➡️ 次のアクション生成中... (GPT: {use_gpt})")
         if not use_gpt or not self.azure_client:
@@ -471,7 +468,7 @@ class AIAgent:
             print(f"次のアクション生成でエラーが発生: {e}")
             return "あいうえお"
 
-    def _generate_agenda_bullets(self, variables: Dict[str, str], use_gpt: bool) -> str:
+    def _generate_agenda_bullets(self, variables: dict[str, str], use_gpt: bool) -> str:
         """アジェンダの生成"""
         print(f"    📋 アジェンダ生成中... (GPT: {use_gpt})")
         if not use_gpt or not self.azure_client:

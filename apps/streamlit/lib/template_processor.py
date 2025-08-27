@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -27,7 +27,7 @@ class TemplateProcessor:
 
     def create_presentation_from_template(
         self, 
-        variables: Dict[str, str], 
+        variables: dict[str, str], 
         output_path: Path
     ) -> Path:
         """テンプレートからプレゼンテーションを生成"""
@@ -46,7 +46,7 @@ class TemplateProcessor:
         
         return output_path
 
-    def _replace_variables_in_pptx(self, pptx_path: Path, variables: Dict[str, str]):
+    def _replace_variables_in_pptx(self, pptx_path: Path, variables: dict[str, str]):
         """PPTXファイル内の変数を置換"""
         
         prs = Presentation(pptx_path)
@@ -63,7 +63,7 @@ class TemplateProcessor:
         print(f"✅ 変数置換完了: {total_replacements}箇所")
         print(f"📁 ファイル保存完了: {pptx_path}")
 
-    def _replace_variables_in_shapes(self, shapes, variables: Dict[str, str]) -> int:
+    def _replace_variables_in_shapes(self, shapes, variables: dict[str, str]) -> int:
         """シェイプ内の変数を置換（再帰的に処理）"""
         
         replacement_count = 0
@@ -89,7 +89,7 @@ class TemplateProcessor:
         
         return replacement_count
 
-    def _replace_variables_in_text_frame(self, text_frame, variables: Dict[str, str]) -> int:
+    def _replace_variables_in_text_frame(self, text_frame, variables: dict[str, str]) -> int:
         """テキストフレーム内の変数を置換（フォーマット保持）"""
         
         if not text_frame or not text_frame.text:
@@ -143,7 +143,7 @@ class TemplateProcessor:
         
         return replacement_count
 
-    def _replace_variables_in_table(self, table, variables: Dict[str, str]) -> int:
+    def _replace_variables_in_table(self, table, variables: dict[str, str]) -> int:
         """テーブル内の変数を置換"""
         
         replacement_count = 0
@@ -185,7 +185,7 @@ class TemplateProcessor:
     def _restore_format_info(self, text_frame, format_info: list):
         """テキストフレームのフォーマット情報を復元"""
         
-        for i, (para_info, paragraph) in enumerate(zip(format_info, text_frame.paragraphs)):
+        for i, (para_info, paragraph) in enumerate(zip(format_info, text_frame.paragraphs, strict=False)):
             if i < len(text_frame.paragraphs):
                 # 段落のアライメントを復元
                 paragraph.alignment = para_info["alignment"]
@@ -215,7 +215,7 @@ class TemplateProcessor:
                         if run_info["font_color"] and hasattr(run.font.color, 'rgb'):
                             run.font.color.rgb = run_info["font_color"]
 
-    def get_template_info(self) -> Dict[str, Any]:
+    def get_template_info(self) -> dict[str, Any]:
         """テンプレートの情報を取得"""
         
         prs = Presentation(self.template_path)

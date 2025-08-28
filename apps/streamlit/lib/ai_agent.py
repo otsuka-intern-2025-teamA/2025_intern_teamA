@@ -473,10 +473,22 @@ class AIAgent:
         
         # 価格
         price = product.get("price")
-        if price is not None and str(price).strip():
+        
+        # NaN価格のチェック
+        if price is not None and str(price).strip().lower() == 'nan':
+            variables[price_key] = self._estimate_product_price(
+                product, use_gpt, use_tavily
+            )
+        elif price is not None and str(price).strip():
             try:
                 price_float = float(price)
-                variables[price_key] = f"${price_float:,.2f}"
+                # NaNチェック
+                if not (price_float != price_float):  # 有効な数値
+                    variables[price_key] = f"${price_float:,.2f}"
+                else:
+                    variables[price_key] = self._estimate_product_price(
+                        product, use_gpt, use_tavily
+                    )
             except (ValueError, TypeError):
                 # 価格が無効な場合は推定
                 variables[price_key] = self._estimate_product_price(
@@ -668,16 +680,21 @@ class AIAgent:
         # 製品価格の合計を計算
         for product in products:
             price = product.get("price")
+            
             if price is not None:
                 try:
                     # 文字列から数値に変換（$記号やカンマを除去）
                     if isinstance(price, str):
                         price_clean = price.replace('$', '').replace(',', '').strip()
-                        if price_clean:
+                        if price_clean and price_clean.lower() != 'nan':
                             price_num = float(price_clean)
-                            total_products += price_num
+                            # NaNチェック
+                            if not (price_num != price_num):
+                                total_products += price_num
                     else:
-                        total_products += float(price)
+                        # 数値の場合
+                        if not (price != price):  # NaNチェック
+                            total_products += float(price)
                 except (ValueError, TypeError):
                     continue
         
@@ -830,9 +847,7 @@ class AIAgent:
                         "image_url": row[9] or ""
                     }
                     products.append(product)
-                    print(f"📋 製品データ: rank={product['rank']}, name='{product['name']}', category='{product['category']}', price='{product['price']}', reason='{product['reason']}'")
                 
-                print(f"✅ データベースから{len(products)}件の製品を取得: proposal_id={proposal_id}")
                 return products
                 
         except Exception as e:
@@ -858,8 +873,6 @@ class AIAgent:
             ]
             
             for search_query in search_queries:
-                print(f"🔍 TAVILY検索: {search_query}")
-                
                 response = self.tavily_client.search(
                     query=search_query,
                     search_depth="basic",
@@ -898,7 +911,6 @@ class AIAgent:
                                             # 妥当な価格範囲をチェック（$1 - $50,000）
                                             if 1 <= price_num <= 50000:
                                                 formatted_price = f"${price_num:,.2f}"
-                                                print(f"✅ TAVILYで価格発見: {product_name} = {formatted_price} (URL: {url})")
                                                 return formatted_price
                                         except ValueError:
                                             continue
@@ -907,7 +919,6 @@ class AIAgent:
                 import time
                 time.sleep(0.5)
             
-            print(f"⚠️ TAVILYで価格が見つかりませんでした: {product_name}")
             return None
             
         except Exception as e:

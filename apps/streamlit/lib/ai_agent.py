@@ -473,10 +473,22 @@ class AIAgent:
         
         # 価格
         price = product.get("price")
-        if price is not None and str(price).strip():
+        
+        # NaN価格のチェック
+        if price is not None and str(price).strip().lower() == 'nan':
+            variables[price_key] = self._estimate_product_price(
+                product, use_gpt, use_tavily
+            )
+        elif price is not None and str(price).strip():
             try:
                 price_float = float(price)
-                variables[price_key] = f"${price_float:,.2f}"
+                # NaNチェック
+                if not (price_float != price_float):  # 有効な数値
+                    variables[price_key] = f"${price_float:,.2f}"
+                else:
+                    variables[price_key] = self._estimate_product_price(
+                        product, use_gpt, use_tavily
+                    )
             except (ValueError, TypeError):
                 # 価格が無効な場合は推定
                 variables[price_key] = self._estimate_product_price(
@@ -550,7 +562,18 @@ class AIAgent:
             'network': '$500.00',
             'software': '$1,000.00',
             'hardware': '$800.00',
-            'service': '$2,000.00'
+            'service': '$2,000.00',
+            'case': '$150.00',
+            'fan': '$50.00',
+            'cooler': '$100.00',
+            'hard-drive': '$200.00',
+            'headphones': '$100.00',
+            'keyboard': '$80.00',
+            'monitor': '$300.00',
+            'motherboard': '$200.00',
+            'mouse': '$50.00',
+            'power-supply': '$150.00',
+            'video-card': '$400.00'
         }
         
         for cat_key, default_price in default_prices.items():
@@ -650,18 +673,51 @@ class AIAgent:
             return f"• {company_name}の業務効率化とコスト削減が期待されます\n• 生産性向上による時間短縮\n• システム統合による運用コスト削減"
     
     def _calculate_total_costs(self, products: list[dict[str, Any]]) -> str:
-        """総コストの計算"""
-        total = 0.0
+        """総コストの計算（製品価格 + 導入コスト）"""
+        total_products = 0.0
+        implementation_cost = 0.0
+        
+        # 製品価格の合計を計算
         for product in products:
             price = product.get("price")
+            
             if price is not None:
                 try:
-                    total += float(price)
+                    # 文字列から数値に変換（$記号やカンマを除去）
+                    if isinstance(price, str):
+                        price_clean = price.replace('$', '').replace(',', '').strip()
+                        if price_clean and price_clean.lower() != 'nan':
+                            price_num = float(price_clean)
+                            # NaNチェック
+                            if not (price_num != price_num):
+                                total_products += price_num
+                    else:
+                        # 数値の場合
+                        if not (price != price):  # NaNチェック
+                            total_products += float(price)
                 except (ValueError, TypeError):
                     continue
         
-        if total > 0:
-            return f"${total:,.2f}"
+        # 導入コストの計算（製品数に基づく）
+        if len(products) > 0:
+            # 基本導入コスト
+            base_implementation = 2000.0  # $2,000
+            
+            # 製品数に応じた追加コスト
+            if len(products) <= 3:
+                additional_cost = len(products) * 500.0  # 製品1つあたり$500
+            elif len(products) <= 6:
+                additional_cost = len(products) * 400.0  # 製品1つあたり$400
+            else:
+                additional_cost = len(products) * 300.0  # 製品1つあたり$300
+            
+            implementation_cost = base_implementation + additional_cost
+        
+        # 総コスト
+        total_cost = total_products + implementation_cost
+        
+        if total_cost > 0:
+            return f"${total_cost:,.2f}"
         else:
             return "$0.00"
     
@@ -791,9 +847,7 @@ class AIAgent:
                         "image_url": row[9] or ""
                     }
                     products.append(product)
-                    print(f"📋 製品データ: rank={product['rank']}, name='{product['name']}', category='{product['category']}', price='{product['price']}', reason='{product['reason']}'")
                 
-                print(f"✅ データベースから{len(products)}件の製品を取得: proposal_id={proposal_id}")
                 return products
                 
         except Exception as e:
@@ -807,44 +861,63 @@ class AIAgent:
         
         try:
             # 製品名とカテゴリで検索クエリを作成
-            search_query = f"{product.get('name', '')} {product.get('category', '')} price USD"
+            product_name = product.get('name', '').strip()
+            category = product.get('category', '').strip()
             
-            response = self.tavily_client.search(
-                query=search_query,
-                search_depth="basic",
-                max_results=3
-            )
+            # より具体的な検索クエリを作成
+            search_queries = [
+                f'"{product_name}" price USD buy',
+                f'"{product_name}" {category} price USD',
+                f'{product_name} {category} cost price',
+                f'{product_name} price dollars'
+            ]
             
-            if response.get("results"):
-                # 検索結果から価格情報を抽出
-                for result in response["results"]:
-                    content = result.get("content", "").lower()
-                    # 価格パターンを検索
-                    import re
-                    price_patterns = [
-                        r'\$[\d,]+\.?\d*',  # $1,000.00
-                        r'[\d,]+\.?\d*\s*dollars?',  # 1,000.00 dollars
-                        r'[\d,]+\.?\d*\s*usd',  # 1,000.00 USD
-                        r'[\d,]+\.?\d*\s*\$'   # 1,000.00 $
-                    ]
-                    
-                    for pattern in price_patterns:
-                        matches = re.findall(pattern, content)
-                        if matches:
-                            # 最初に見つかった価格を使用
-                            price_str = matches[0]
-                            # 数値部分を抽出してフォーマット
-                            if price_str.startswith('$'):
-                                return price_str
-                            else:
-                                # 数値部分を抽出
-                                num_match = re.search(r'[\d,]+\.?\d*', price_str)
-                                if num_match:
-                                    try:
-                                        price_num = float(num_match.group().replace(',', ''))
-                                        return f"${price_num:,.2f}"
-                                    except ValueError:
-                                        continue
+            for search_query in search_queries:
+                response = self.tavily_client.search(
+                    query=search_query,
+                    search_depth="basic",
+                    max_results=5
+                )
+                
+                if response.get("results"):
+                    # 検索結果から価格情報を抽出
+                    for result in response["results"]:
+                        content = result.get("content", "").lower()
+                        title = result.get("title", "").lower()
+                        url = result.get("url", "")
+                        
+                        # 価格パターンを検索（より詳細なパターン）
+                        import re
+                        price_patterns = [
+                            r'\$[\d,]+\.?\d*',  # $1,000.00
+                            r'[\d,]+\.?\d*\s*dollars?',  # 1,000.00 dollars
+                            r'[\d,]+\.?\d*\s*usd',  # 1,000.00 USD
+                            r'[\d,]+\.?\d*\s*\$',   # 1,000.00 $
+                            r'[\d,]+\.?\d*\s*price',  # 1,000.00 price
+                            r'price:\s*\$?[\d,]+\.?\d*',  # price: $1,000.00
+                            r'cost:\s*\$?[\d,]+\.?\d*'    # cost: $1,000.00
+                        ]
+                        
+                        for pattern in price_patterns:
+                            matches = re.findall(pattern, content)
+                            if matches:
+                                # 価格の妥当性をチェック
+                                for price_str in matches:
+                                    # 数値部分を抽出
+                                    num_match = re.search(r'[\d,]+\.?\d*', price_str)
+                                    if num_match:
+                                        try:
+                                            price_num = float(num_match.group().replace(',', ''))
+                                            # 妥当な価格範囲をチェック（$1 - $50,000）
+                                            if 1 <= price_num <= 50000:
+                                                formatted_price = f"${price_num:,.2f}"
+                                                return formatted_price
+                                        except ValueError:
+                                            continue
+                
+                # 次の検索クエリを試す前に少し待機
+                import time
+                time.sleep(0.5)
             
             return None
             

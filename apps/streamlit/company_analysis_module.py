@@ -1,8 +1,10 @@
 import os
 import time
 from pathlib import Path
+from typing import List
 
 import requests
+import streamlit as st
 
 # 履歴の保存/復元
 from lib.api import APIError, get_api_client
@@ -11,6 +13,7 @@ from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search,
     generate_tavily_queries,
+    extract_user_intent,  # ★ 追加：ユーザー意図抽出
 )
 
 # 共通スタイル(HTML生成もstyles側に集約)
@@ -22,8 +25,6 @@ from lib.styles import (
     render_company_analysis_title,  # ← タイトルh1をstyles側で描画
     render_sidebar_logo_card,  # ← ロゴカードHTMLをstyles側で描画
 )
-
-import streamlit as st
 
 # 画像ファイルのパス定義
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -80,9 +81,6 @@ def _pick_one_per_query(
 ) -> list[SearchHit]:
     """
     1クエリにつき最終1件（=URL重複は避ける）を選び、合計 target_k 件にそろえる。
-    - 各クエリのヒットから順に、まだ使っていないURLを1件選ぶ
-    - 選べなかったクエリは「残り候補」を保留し、あとで補完
-    - それでも不足する場合は、全候補から未使用URLで埋める
     """
     seen_urls: set[str] = set()
     selected: list[SearchHit] = []
@@ -100,7 +98,6 @@ def _pick_one_per_query(
             if not _url_ok(u):
                 continue
             if u in seen_urls:
-                # 重複は候補として温存
                 leftovers.append(h)
                 continue
             chosen = h
@@ -109,13 +106,12 @@ def _pick_one_per_query(
         if chosen:
             selected.append(chosen)
             seen_urls.add((chosen.url or "").strip())
-            # 余った同一クエリ内の他候補は後補充用に追加
+            # 余りを後補充へ
             for h in hits:
                 u = (h.url or "").strip()
                 if _url_ok(u) and u not in seen_urls and h is not chosen:
                     leftovers.append(h)
         else:
-            # そもそも選べなかった（0件 or 全重複）→全部後補充候補へ
             for h in hits:
                 u = (h.url or "").strip()
                 if _url_ok(u) and u not in seen_urls:
@@ -141,7 +137,7 @@ def _pick_one_per_query(
 def render_company_analysis_page():
     """企業分析ページをレンダリング(常時チャット+サイドバー上ロゴ+タイトル上詰め)"""
 
-    # set_page_config は最上流で1回だけ。複数回呼ばれても例外にするので握りつぶす。
+    # set_page_config は最上流で1回だけ
     try:
         st.set_page_config(
             page_title="企業分析",
@@ -260,21 +256,21 @@ def render_company_analysis_page():
     # 2) アシスタント処理
     with st.chat_message("assistant"):
         assistant_text = ""
-        final_output_placeholder = st.empty()   # ← 最終出力は枠の外
-        status_placeholder = st.empty()         # ← 進捗の枠
+        final_output_placeholder = st.empty()   # 最終出力は枠の外
+        status_placeholder = st.empty()         # 進捗の枠
 
         try:
-            # 直近履歴
+            # 直近履歴を文字列化
             history_n = st.session_state.get("history_reference_count", 3)
             recent_history = (
                 st.session_state.chat_messages[-history_n * 2 :]
                 if len(st.session_state.chat_messages) > history_n * 2
                 else st.session_state.chat_messages
             )
-            context = "過去のチャット履歴:\n"
+            history_str = "過去のチャット履歴:\n"
             for msg in recent_history:
                 role = "ユーザー" if msg["role"] == "user" else "アシスタント"
-                context += f"{role}: {msg['content']}\n\n"
+                history_str += f"{role}: {msg['content']}\n\n"
 
             if use_web_search:
                 search_company = (company or "").strip() or default_company
@@ -283,28 +279,31 @@ def render_company_analysis_page():
                     assistant_text = "企業名が未入力です。"
                 else:
                     with status_placeholder.status("企業分析（Web検索あり）を開始します…", expanded=True) as status:
-                        # ① クエリ作成（= 総参照URL件数）
+                        # ① Intent抽出
+                        status.update(label="🧭 ユーザー意図を抽出中…", state="running")
+                        intent = extract_user_intent(search_company, prompt.strip(), chat_history=history_str)
+                        query_seed = (intent.get("query_seed") or prompt.strip() or "overview").strip()
+                        status.write(f"・目的: {intent.get('goal') or '不明'}")
+                        status.write(f"・判断: {intent.get('decision') or '不明'}")
+                        if intent.get("timeframe"): status.write(f"・期間: {intent['timeframe']}")
+
+                        # ② クエリ生成（= 総参照URL件数）
                         k = int(top_k)
                         status.update(label="🔎 クエリ作成中…", state="running")
-                        queries = generate_tavily_queries(search_company, prompt.strip(), max_queries=k)
+                        queries = generate_tavily_queries(search_company, query_seed, max_queries=k)
                         if not queries:
-                            # フォールバック
-                            base = prompt.strip() or "overview"
+                            base = query_seed or "overview"
                             queries = [f"{search_company} {base} {i+1}" for i in range(k)]
-                        # 必要なら切り詰め/水増し
                         if len(queries) > k:
                             queries = queries[:k]
                         elif len(queries) < k:
-                            # 簡易に補充してちょうどk件へ
-                            base = prompt.strip() or "overview"
+                            base = query_seed or "overview"
                             for i in range(k - len(queries)):
                                 queries.append(f"{search_company} {base} extra{i+1}")
-
                         for q in queries:
                             status.write(f"・{q}")
 
-                        # ② Web検索（各クエリ→最大N件取得して1件だけ選ぶ）
-                        #    1クエリ=1URLにするため count は少し多め(例:3)で取得し、その中から未使用URLを選出
+                        # ③ Web検索（各クエリ→最大N件取得→1クエリ=1URL選定）
                         N_CANDIDATES_PER_QUERY = 3
                         status.update(label="🌐 Web検索中…", state="running")
                         hits_by_query: list[list[SearchHit]] = []
@@ -315,10 +314,8 @@ def render_company_analysis_page():
                             status.write(f"クエリ{i+1}: {q} … 1件選定")
                             prog.progress((i + 1) / max(1, len(queries)))
 
-                        # 1クエリ=1URL の選定
                         final_hits = _pick_one_per_query(hits_by_query, target_k=k)
 
-                        # ログ表示
                         status.write("—— 採用URL——")
                         if final_hits:
                             for idx, h in enumerate(final_hits, 1):
@@ -331,13 +328,22 @@ def render_company_analysis_page():
                             status.update(label="⚠️ 検索結果が見つかりませんでした", state="error")
                             assistant_text = "検索結果が得られませんでした。TAVILY_API_KEY を確認してください。"
                         else:
-                            # ③ LLM要約
+                            # ④ LLM要約: Intentをcontextに混ぜる
                             status.update(label="🧠 LLMで要約中…", state="running")
-                            report = company_briefing_with_web_search(search_company, final_hits, context)
+                            context_lines = []
+                            if intent:
+                                context_lines.append("【ユーザー意図】")
+                                if intent.get("goal"): context_lines.append(f"- 目的: {intent['goal']}")
+                                if intent.get("decision"): context_lines.append(f"- 判断: {intent['decision']}")
+                                if intent.get("constraints"): context_lines.append(f"- 制約: {', '.join(intent['constraints'])}")
+                                if intent.get("timeframe"): context_lines.append(f"- 期間: {intent['timeframe']}")
+                                if intent.get("kpis"): context_lines.append(f"- KPI: {', '.join(intent['kpis'])}")
+                            context_str = "\n".join(context_lines)
+
+                            report = company_briefing_with_web_search(search_company, final_hits, context_str)
                             assistant_text = str(report)
                             status.update(label="✅ 完了", state="complete")
 
-                    # 進捗枠を閉じ、最終出力を枠の外へ
                     time.sleep(0.2)
                     status_placeholder.empty()
                     if assistant_text:
@@ -351,11 +357,25 @@ def render_company_analysis_page():
                     assistant_text = "企業名が未入力です。"
                 else:
                     with status_placeholder.status("企業分析（LLMのみ）を開始します…", expanded=True) as status:
-                        status.update(label="📚 履歴コンテキストを準備中…", state="running")
-                        status.write(f"直近履歴を参照: {min(history_n, len(st.session_state.chat_messages)//2)} 往復")
+                        # ① Intent抽出
+                        status.update(label="🧭 ユーザー意図を抽出中…", state="running")
+                        intent = extract_user_intent(target_company, prompt.strip(), chat_history=history_str)
+                        status.write(f"・目的・判断を抽出中…")
+                        if intent.get("timeframe"): status.write(f"・期間: {intent['timeframe']}")
 
+                        # ② LLM要約（contextへIntentを注入）
                         status.update(label="🧠 LLMで分析中…", state="running")
-                        report = company_briefing_without_web_search(target_company, prompt.strip(), context)
+                        context_lines = []
+                        if intent:
+                            context_lines.append("【ユーザー意図】")
+                            if intent.get("goal"): context_lines.append(f"- 目的: {intent['goal']}")
+                            if intent.get("decision"): context_lines.append(f"- 判断: {intent['decision']}")
+                            if intent.get("constraints"): context_lines.append(f"- 制約: {', '.join(intent['constraints'])}")
+                            if intent.get("timeframe"): context_lines.append(f"- 期間: {intent['timeframe']}")
+                            if intent.get("kpis"): context_lines.append(f"- KPI: {', '.join(intent['kpis'])}")
+                        context_str = "\n".join(context_lines)
+
+                        report = company_briefing_without_web_search(target_company, prompt.strip(), context_str)
                         assistant_text = str(report)
                         status.update(label="✅ 完了", state="complete")
 
@@ -363,7 +383,8 @@ def render_company_analysis_page():
                     status_placeholder.empty()
                     if assistant_text:
                         final_output_placeholder.markdown(assistant_text)
-            
+
+            # 取引履歴の任意表示
             if show_history:
                 import pandas as pd
                 history_path = PROJECT_ROOT / "data" / "csv" / "products" / "history.csv"

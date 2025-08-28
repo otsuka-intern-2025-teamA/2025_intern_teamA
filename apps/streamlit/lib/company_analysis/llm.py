@@ -1,9 +1,16 @@
 import json
+from typing import Any, List, Optional
 
-# ▼ 追加：Universal Context を常時前置する
-from apps.shared.prompting.universal_context import build_uc_for_company_analysis_full
+# ▼ Universal Context（前置）: パス差異に強いtry-import
+try:
+    from .universal_context import build_uc_for_company_analysis_full
+except Exception:  # pragma: no cover
+    try:
+        from apps.shared.prompting.universal_context import build_uc_for_company_analysis_full
+    except Exception:
+        from universal_context import build_uc_for_company_analysis_full  # 最後の手段
+
 from openai import AzureOpenAI, OpenAI
-
 from .config import get_settings
 from .data import SearchHit
 
@@ -36,7 +43,54 @@ def _prepend_uc_messages(company: str, base_messages: list[dict], *,
     return base_messages
 
 
-# 自然言語クエリを生成
+# ==============
+# 新規: ユーザー意図抽出
+# ==============
+def extract_user_intent(company: str, user_input: str, chat_history: str = "") -> dict:
+    """
+    直近の質問と簡易履歴から、意思決定に必要な意図をJSONで構造化抽出。
+    出力:
+      {"goal":"","decision":"","constraints":[],"timeframe":"",
+       "kpis":[],"entities":[],"query_seed":""}
+    """
+    s = get_settings()
+    client = get_client()
+    model_name = "gpt-5-mini" if s.use_azure else s.default_model
+
+    sys = (
+        "あなたはB2B営業の要件定義アナリストです。"
+        "ユーザーの直近メッセージ（と任意のチャット履歴）から、"
+        "意思決定に必要な『意図の要約』をJSONで構造化してください。"
+        "推測は避け、不明はnullに。日本語。"
+        '出力は必ずJSON: {"goal":"","decision":"","constraints":[],"timeframe":"","kpis":[],"entities":[],"query_seed":""}'
+    )
+    usr = (
+        f"会社名: {company}\n"
+        f"ユーザー入力: {user_input}\n"
+        f"チャット履歴要約(任意): {chat_history}\n"
+        "上記から、最も重要な目的/判断したいこと/制約/時間軸/KPI/主要トピックを抽出し、"
+        "検索用に短いquery_seed（10語以内、名詞中心）も作ってください。"
+    )
+
+    messages = _prepend_uc_messages(  # UC前置
+        company,
+        base_messages=[{"role": "system", "content": sys}, {"role": "user", "content": usr}],
+        sales_objective=None, audience=None
+    )
+    try:
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0.2,
+        )
+        content = resp.choices[0].message.content or "{}"
+        return json.loads(content)
+    except Exception:
+        return {}
+
+
+# 自然言語クエリを生成（既存強化：ちょうどN件）
 def generate_tavily_queries(
     company: str,
     user_input: str = "",
@@ -55,7 +109,6 @@ def generate_tavily_queries(
     client = get_client()
     model_name = "gpt-5-mini" if s.use_azure else s.default_model
 
-    # LLM への明示指示：必ず "ちょうど" N 件
     sys = (
         "あなたはWebリサーチに最適な検索クエリを作る専門家です。"
         f"与えられた会社名と質問から、重複しない ちょうど {max_queries} 個 の短い検索クエリを作ってください。"
@@ -76,7 +129,6 @@ def generate_tavily_queries(
         'フォーマット: {"queries": ["..."]}（配列長は必ず上記の件数に一致させる）'
     )
 
-    # UC を最初の System として前置
     messages = _prepend_uc_messages(
         company,
         base_messages=[
@@ -101,7 +153,7 @@ def generate_tavily_queries(
     except Exception:
         queries = []
 
-    # 正規化（空/重複/トリム）
+    # 正規化
     cleaned: list[str] = []
     seen: set[str] = set()
     for q in queries:
@@ -114,10 +166,9 @@ def generate_tavily_queries(
         seen.add(key)
         cleaned.append(q)
 
-    # ----- 不足分は営業向け“定番スロット”で自動補完 → ちょうど N 件に -----
+    # 自動補完（営業向け優先ソース）
     def _auto_fill(company: str, intent: str, need: int) -> list[str]:
         base = (intent or "overview").strip()
-        # 優先ソースを含むテンプレを多めに用意（site: は検索エンジン側で無視されても無害）
         slots = [
             f"{company} 決算短信 2024 OR 2025",
             f"{company} 有価証券報告書 site:disclosure.edinet-fsa.go.jp",
@@ -141,7 +192,6 @@ def generate_tavily_queries(
                 continue
             seen.add(cand.lower())
             out.append(cand)
-        # それでも足りなければ素朴に埋める
         while len(out) < need:
             extra = f"{company} {base} extra-{len(out)+1}"
             if extra.lower() in seen:
@@ -153,35 +203,25 @@ def generate_tavily_queries(
     if len(cleaned) < max_queries:
         cleaned.extend(_auto_fill(company, user_input, max_queries - len(cleaned)))
 
-    # 多すぎたら切り詰め
     if len(cleaned) > max_queries:
         cleaned = cleaned[:max_queries]
 
     return cleaned
 
 
-
 def company_briefing_with_web_search(
     company: str,
-    hits: list[SearchHit],
+    hits: List[SearchHit],
     context: str = "",
     *,
-    sales_objective: str | None = None,
-    audience: str | None = None,
+    sales_objective: Optional[str] = None,
+    audience: Optional[str] = None,
 ) -> str:
-    """Web検索結果を使用した企業分析（柔軟構成／固定テンプレ外し／参考リンクは最後に必ず付与）"""
+    """Web検索結果を使用した企業分析（役割/手順を明示。最後に参考リンク必須）"""
     s = get_settings()
     client = get_client()
+    model_name = "gpt-5-mini" if s.use_azure else s.default_model
 
-    # Azureは"デプロイ名"が必須
-    if s.use_azure:
-        model_name = "gpt-5-mini"
-        if not model_name:
-            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
-    else:
-        model_name = s.default_model
-
-    # 参考情報（証拠）
     evidence = [
         {"title": h.title, "url": h.url, "snippet": h.snippet, "published": h.published or ""} for h in (hits or [])
     ]
@@ -190,14 +230,17 @@ def company_briefing_with_web_search(
         {
             "role": "system",
             "content": (
-                "あなたは入念な企業調査アナリストです。"
-                "与えられた証拠（検索ヒット）に厳密に基づき、日本語で回答します。"
-                "推測は禁止。不明は「公開情報では不明」と明記。"
-                "出力のアウトラインはユーザーの直近の質問意図を最優先し、"
-                "必要な場合のみ適切な小見出しを付けてください。"
-                "特定の固定テンプレート（例：企業概要/製品/顧客/競合/リスク…）を必須にしないでください。"
-                "読みやすいマークダウンで、要点は箇条書きを積極的に用いて簡潔に。"
-                "論拠が分かるよう、最後に「参考リンク」を必ず付けてください。"
+                "あなたはB2B企業調査アナリストです。"
+                "【役割】ユーザー意図に合致する“意思決定可能な結論”を、最新のWeb証拠に基づき提示し、"
+                "残る不確実性を3つの検証質問へ落とし込む。"
+                "【目的】(1) 直問の結論 (2) 主要根拠(日付/数値/出典) (3) 重要洞察と含意 (4) リスク/不明点の明確化 (5) 次アクション設計。"
+                "【制約】証拠第一。推測しない。相反は『両説＋日付』を併記し新しい方に『※新しい』。抽象語の濫用禁止。日本語。"
+                "【フォーマット】必ずMarkdownで出力。セクション見出しは`##`、小見出しは`###`、ラベルは**太字:**（例: **目的:**）。箇条書きは`-`で始める。"
+                "Markdownが使えない環境と判断したら同じ構成で見出しを【…】で囲む。"
+                "【手順】Step1: 入力の『ユーザー意図(目的/判断/期間/KPI)』を先頭1〜3行で要約。"
+                "Step2: 証拠を照合して結論→根拠→洞察→リスク/不明点。"
+                "Step3: 次質問3件（後述仕様）。"
+                "【出力】見出し＋箇条書きで簡潔。末尾は必ず『参考リンク』。"
             ),
         },
         {
@@ -207,16 +250,17 @@ def company_briefing_with_web_search(
                 f"検索結果(証拠): {json.dumps(evidence, ensure_ascii=False)}\n"
                 f"{context if context else ''}\n"
                 "要件:\n"
-                "- 証拠に存在しない事実は書かない（推測禁止）\n"
-                "- 相反情報は「両説」と日付を併記し、より新しい方に『※新しい』と注記\n"
-                "- ユーザーの質問に直接答える構成を最優先（固定の章立てを強制しない）\n"
-                "- 読みやすいマークダウンで簡潔に\n"
-                "- 最後に「参考リンク」節を付ける（自動でリンクを追記することがあります）"
+                "- 証拠に存在しない事実は書かない（推測禁止）。\n"
+                "- 相反情報は『両説＋日付』を併記し、新しい方に『※新しい』。\n"
+                "- まず『ユーザー意図の要約』→その後に本文（結論/根拠/洞察/リスク）。\n"
+                "- 『参考リンク』の直前に『## 次に聞くべき質問（例）』を**ちょうど3件**列挙：\n"
+                "  ルール: 各質問は1–2文で、必ず〔数値/期間/対象部署or役職/判断基準〕を含める。抽象語だけは禁止。\n"
+                "  併記情報: (意図:10語以内) (対象:役職or部署) (根拠: どのURL/出典に基づくか) (次アクション:Yes/No時の一言)。\n"
+                "- 最後に『参考リンク』節（採用したURLを列挙）。\n"
             ),
         },
     ]
 
-    # ▼ Universal Context を System 先頭に追加
     messages = _prepend_uc_messages(
         company,
         base_messages=base_messages,
@@ -241,29 +285,28 @@ def company_briefing_without_web_search(
     user_input: str,
     context: str = "",
     *,
-    sales_objective: str | None = None,
-    audience: str | None = None,
+    sales_objective: Optional[str] = None,
+    audience: Optional[str] = None,
 ) -> str:
-    """Web検索なしでユーザー入力のみを使用した企業分析（従来どおり）"""
+    """Web検索なし（与えられた入力のみで結論→3質問まで導出）"""
     s = get_settings()
     client = get_client()
-
-    # Azureは"デプロイ名"が必須
-    if s.use_azure:
-        model_name = "gpt-5-mini"
-        if not model_name:
-            raise RuntimeError("Azure利用時は AZURE_OPENAI_CHAT_DEPLOYMENT（デプロイ名）が必要です。")
-    else:
-        model_name = s.default_model
+    model_name = "gpt-5-mini" if s.use_azure else s.default_model
 
     base_messages = [
         {
             "role": "system",
             "content": (
-                "あなたは入念な企業調査アナリストです。"
-                "ユーザーからの質問や要望に基づいて、企業分析に関するアドバイスを提供してください。"
-                "出力は読みやすいマークダウン形式で、ユーザーの質問に直接回答し、"
-                "必要に応じて小見出しを付けてください。"
+                "あなたはB2B企業調査アナリストです。"
+                "【役割】ユーザー意図に合致する“意思決定可能な結論”を、与えられた入力のみで提示し、"
+                "残る不確実性を3つの検証質問へ落とし込む。"
+                "【目的】(1) 直問の結論 (2) 主要根拠（本文内で明示） (3) 重要洞察と含意 (4) 不明点の明確化 (5) 次アクション設計。"
+                "【制約】推測は避け、不明は不明と明記。相反は『両説＋日付』で整理。日本語。"
+                "【フォーマット】必ずMarkdownで出力。セクション見出しは`##`、小見出しは`###`、ラベルは**太字:**（例: **目的:**）。箇条書きは`-`で始める。"
+                "Markdownが使えない環境と判断したら同じ構成で見出しを【…】で囲む。"
+                "【手順】Step1: 入力の『ユーザー意図(目的/判断/期間/KPI)』を先頭1〜3行で要約。"
+                "Step2: 結論→根拠→洞察→不明点。Step3: 次質問3件（仕様下記）。"
+                "【出力】見出し＋箇条書き中心。末尾の参考リンクは任意。"
             ),
         },
         {
@@ -272,12 +315,15 @@ def company_briefing_without_web_search(
                 f"企業名: {company}\n"
                 f"ユーザーの質問・要望: {user_input}\n"
                 f"{context if context else ''}\n\n"
-                "上記の質問・要望に基づいて、企業分析に関するアドバイスをマークダウン形式で出力してください。"
+                "要件:\n"
+                "- まず『ユーザー意図の要約』→その後に本文（結論/根拠/洞察/不明点）。\n"
+                "- 出力末尾付近に『## 次に聞くべき質問（例）』を**ちょうど3件**：\n"
+                "  ルール: 各質問は1–2文で、必ず〔数値/期間/対象部署or役職/判断基準〕を含める。抽象語のみは禁止。\n"
+                "  併記情報: (意図:10語以内) (対象:役職or部署) (根拠: 本文のどの仮説/記述に基づくか) (次アクション:Yes/No一言)。\n"
             ),
         },
     ]
 
-    # ▼ Universal Context を System 先頭に追加
     messages = _prepend_uc_messages(
         company,
         base_messages=base_messages,
@@ -298,7 +344,6 @@ def company_briefing_without_web_search(
     return content
 
 
-# 後方互換性のため既存の関数名も保持
-def company_briefing(company: str, hits: list[SearchHit], context: str = "") -> str:
-    """後方互換性のための関数(company_briefing_with_web_searchと同じ)"""
+# 後方互換名
+def company_briefing(company: str, hits: List[SearchHit], context: str = "") -> str:
     return company_briefing_with_web_search(company, hits, context)

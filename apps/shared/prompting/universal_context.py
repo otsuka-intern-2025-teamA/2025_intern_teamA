@@ -1,5 +1,3 @@
-# --- 変更/追記部分のみ抜粋 ---
-
 from dataclasses import dataclass
 from datetime import datetime
 

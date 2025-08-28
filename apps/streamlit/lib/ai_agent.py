@@ -144,19 +144,19 @@ class AIAgent:
                 if "AGENDA" in key:
                     cleaned_variables[key] = "• 現状分析\n• 課題整理\n• 提案概要\n• 導入効果\n• 導入計画"
                 elif "CHAT_HISTORY" in key:
-                    cleaned_variables[key] = "商談の詳細な内容が記録されています。"
+                    cleaned_variables[key] = "• 商談の詳細な内容が記録されています\n• 重要なポイントが整理されています\n• 決定事項が明確化されています"
                 elif "PROBLEM_HYPOTHESES" in key:
-                    cleaned_variables[key] = "業務効率化とコスト削減の課題が特定されています。"
+                    cleaned_variables[key] = "• 業務効率化の課題が特定されています\n• コスト削減の機会が認識されています\n• システム統合の必要性が明確です"
                 elif "PROPOSAL_SUMMARY" in key:
-                    cleaned_variables[key] = f"{company_name}向けの包括的なソリューション提案です。"
+                    cleaned_variables[key] = f"• {company_name}向けの包括的なソリューション提案です\n• 複数の製品を組み合わせた最適解を提供します\n• 段階的な導入でリスクを最小化します"
                 elif "EXPECTED_IMPACTS" in key:
-                    cleaned_variables[key] = f"{company_name}の業務効率化とコスト削減が期待されます。"
+                    cleaned_variables[key] = f"• {company_name}の業務効率化が期待されます\n• 生産性向上による時間短縮が実現されます\n• システム統合による運用コスト削減が可能です"
                 elif "SCHEDULE_PLAN" in key:
-                    cleaned_variables[key] = f"{company_name}向けの段階的導入計画を提案します。"
+                    cleaned_variables[key] = f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
                 elif "NEXT_ACTIONS" in key:
-                    cleaned_variables[key] = "詳細な提案書の作成と次回ミーティングの調整を行います。"
+                    cleaned_variables[key] = "• 詳細な提案書の作成を行います\n• 次回ミーティングの調整を行います\n• 技術要件の詳細確認を実施します"
                 else:
-                    cleaned_variables[key] = "情報を準備中"
+                    cleaned_variables[key] = "• 情報を準備中"
             else:
                 cleaned_variables[key] = value
         
@@ -211,58 +211,74 @@ class AIAgent:
             return "• 現状分析\n• 課題整理\n• 提案概要\n• 導入効果\n• 導入計画"
     
     def _generate_chat_summary(self, chat_history: str, use_gpt: bool) -> str:
-        """チャット履歴のサマリー生成（400文字以内）"""
+        """チャット履歴のサマリー生成（箇条書き形式）"""
         if not chat_history.strip():
-            return "商談履歴はありません。"
+            return "• 商談履歴はありません"
         
         if not use_gpt or not self.azure_client:
-            # フォールバック: 単純な要約
-            summary = chat_history[:400]
-            if len(chat_history) > 400:
-                summary += "..."
-            return summary
+            # フォールバック: 箇条書き形式で要約
+            lines = chat_history.split('\n')[:5]  # 最大5行
+            bullet_points = []
+            for line in lines:
+                if line.strip():
+                    bullet_points.append(f"• {line.strip()}")
+            return '\n'.join(bullet_points)
         
         try:
             prompt = f"""
-以下の商談履歴を400文字以内で要約してください。
+以下の商談履歴を3-5行の箇条書きで要約してください。
 重要なポイントや決定事項を中心にまとめてください。
 
 商談履歴:
 {chat_history[:1000]}
 
-要約:
+箇条書き要約:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたは商談履歴の要約専門家です。簡潔で要点を押さえた要約を作成してください。"},
+                    {"role": "system", "content": "あなたは商談履歴の要約専門家です。3-5行の箇条書きで要点を押さえた要約を作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"チャット履歴要約エラー: {e}")
-            summary = chat_history[:400]
-            if len(chat_history) > 400:
-                summary += "..."
-            return summary
+            # フォールバック: 箇条書き形式
+            lines = chat_history.split('\n')[:5]
+            bullet_points = []
+            for line in lines:
+                if line.strip():
+                    bullet_points.append(f"• {line.strip()}")
+            return '\n'.join(bullet_points)
     
     def _generate_problem_hypotheses(
         self, proposal_issues: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """課題仮説の生成（400文字以内）"""
+        """課題仮説の生成（箇条書き形式）"""
         if not proposal_issues:
-            return "具体的な課題は特定されていません。"
+            return "• 具体的な課題は特定されていません"
         
         if not use_gpt or not self.azure_client:
-            # フォールバック: 課題を列挙
-            issues_text = "、".join([issue.get("issue", "") for issue in proposal_issues[:3]])
-            return f"主要課題: {issues_text}"
+            # フォールバック: 箇条書き形式で課題を列挙
+            bullet_points = []
+            for issue in proposal_issues[:5]:  # 最大5件
+                bullet_points.append(f"• {issue.get('issue', '')} (重み: {issue.get('weight', 0):.2f})")
+            return '\n'.join(bullet_points)
         
         try:
             issues_text = "\n".join([
@@ -271,41 +287,55 @@ class AIAgent:
             ])
             
             prompt = f"""
-以下の課題情報を基に、企業が抱える潜在的な問題を400文字以内で分析してください。
+以下の課題情報を基に、企業が抱える潜在的な問題を3-5行の箇条書きで分析してください。
 ビジネスインパクトの観点から整理してください。
 
 課題リスト:
 {issues_text}
 
-問題分析:
+箇条書き問題分析:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B課題分析の専門家です。具体的で実用的な問題分析を行ってください。"},
+                    {"role": "system", "content": "あなたはB2B課題分析の専門家です。3-5行の箇条書きで具体的で実用的な問題分析を行ってください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"課題仮説生成エラー: {e}")
-            issues_text = "、".join([issue.get("issue", "") for issue in proposal_issues[:3]])
-            return f"主要課題: {issues_text}"
+            # フォールバック: 箇条書き形式
+            bullet_points = []
+            for issue in proposal_issues[:5]:
+                bullet_points.append(f"• {issue.get('issue', '')} (重み: {issue.get('weight', 0):.2f})")
+            return '\n'.join(bullet_points)
     
     def _generate_proposal_summary(
         self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
-        """提案サマリーの生成（400文字以内）"""
+        """提案サマリーの生成（箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            # フォールバック: 製品名を列挙
-            product_names = [p.get("name", "") for p in products]
-            return f"{company_name}向けに{len(products)}件の製品を提案します。"
+            # フォールバック: 箇条書き形式で製品名を列挙
+            bullet_points = [f"• {company_name}向けの包括的ソリューション提案"]
+            for product in products[:4]:  # 最大4件
+                bullet_points.append(f"• {product.get('name', '')} ({product.get('category', '')})")
+            return '\n'.join(bullet_points)
         
         try:
             product_info = "\n".join([
@@ -314,7 +344,7 @@ class AIAgent:
             ])
             
             prompt = f"""
-以下の情報を基に、提案の概要を400文字以内で作成してください。
+以下の情報を基に、提案の概要を3-5行の箇条書きで作成してください。
 企業の課題解決に焦点を当てた提案内容にしてください。
 
 企業名: {company_name}
@@ -322,25 +352,37 @@ class AIAgent:
 提案製品:
 {product_info}
 
-提案概要:
+箇条書き提案概要:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B提案の専門家です。企業の課題解決に焦点を当てた提案概要を作成してください。"},
+                    {"role": "system", "content": "あなたはB2B提案の専門家です。3-5行の箇条書きで企業の課題解決に焦点を当てた提案概要を作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"提案サマリー生成エラー: {e}")
-            product_names = [p.get("name", "") for p in products]
-            return f"{company_name}向けに{len(products)}件の製品を提案します。"
+            # フォールバック: 箇条書き形式
+            bullet_points = [f"• {company_name}向けの包括的ソリューション提案"]
+            for product in products[:4]:
+                bullet_points.append(f"• {product.get('name', '')} ({product.get('category', '')})")
+            return '\n'.join(bullet_points)
     
     def _generate_product_variables(
         self, product: dict[str, Any], index: int, 
@@ -455,39 +497,48 @@ class AIAgent:
         self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
-        """期待効果の生成（400文字以内）"""
+        """期待効果の生成（箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"{company_name}の業務効率化とコスト削減が期待されます。"
+            return f"• {company_name}の業務効率化とコスト削減が期待されます\n• 生産性向上による時間短縮\n• システム統合による運用コスト削減"
         
         try:
             product_names = [p.get("name", "") for p in products]
             
             prompt = f"""
-以下の情報を基に、提案製品の導入による期待効果を400文字以内で説明してください。
+以下の情報を基に、提案製品の導入による期待効果を3-5行の箇条書きで説明してください。
 定量的・定性的な効果を含めてください。
 
 企業名: {company_name}
 商談メモ: {meeting_notes[:300]}
 提案製品: {', '.join(product_names)}
 
-期待効果:
+箇条書き期待効果:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B導入効果分析の専門家です。具体的で実現可能な効果を説明してください。"},
+                    {"role": "system", "content": "あなたはB2B導入効果分析の専門家です。3-5行の箇条書きで具体的で実現可能な効果を説明してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"期待効果生成エラー: {e}")
-            return f"{company_name}の業務効率化とコスト削減が期待されます。"
+            return f"• {company_name}の業務効率化とコスト削減が期待されます\n• 生産性向上による時間短縮\n• システム統合による運用コスト削減"
     
     def _calculate_total_costs(self, products: list[dict[str, Any]]) -> str:
         """総コストの計算"""
@@ -508,70 +559,88 @@ class AIAgent:
     def _generate_schedule_plan(
         self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """スケジュール計画の生成（400文字以内）"""
+        """スケジュール計画の生成（箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"{company_name}向けの段階的導入計画を提案します。"
+            return f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
         
         try:
             prompt = f"""
-以下の情報を基に、製品導入のスケジュール計画を400文字以内で作成してください。
+以下の情報を基に、製品導入のスケジュール計画を3-5行の箇条書きで作成してください。
 現実的で実行可能な計画にしてください。
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-導入スケジュール計画:
+箇条書き導入スケジュール計画:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B導入計画の専門家です。現実的で実行可能なスケジュールを作成してください。"},
+                    {"role": "system", "content": "あなたはB2B導入計画の専門家です。3-5行の箇条書きで現実的で実行可能なスケジュールを作成してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"スケジュール計画生成エラー: {e}")
-            return f"{company_name}向けの段階的導入計画を提案します。"
+            return f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
     
     def _generate_next_actions(
         self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """次のアクションの生成（400文字以内）"""
+        """次のアクションの生成（箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"{company_name}との詳細協議とPoC実施を提案します。"
+            return f"• {company_name}との詳細協議とPoC実施を提案します\n• 技術要件の詳細確認\n• 導入スケジュールの調整"
         
         try:
             prompt = f"""
-以下の情報を基に、提案後の次のアクションを400文字以内で作成してください。
+以下の情報を基に、提案後の次のアクションを3-5行の箇条書きで作成してください。
 具体的で実行可能なアクションにしてください。
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-次のアクション:
+箇条書き次のアクション:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B提案後のアクション計画の専門家です。具体的で実行可能なアクションを提案してください。"},
+                    {"role": "system", "content": "あなたはB2B提案後のアクション計画の専門家です。3-5行の箇条書きで具体的で実行可能なアクションを提案してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            return content[:400]
+            # 箇条書きの形式を統一
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            bullet_points = []
+            for line in lines:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_points.append(line)
+                else:
+                    bullet_points.append(f"• {line}")
+            
+            return '\n'.join(bullet_points[:5])  # 最大5行
             
         except Exception as e:
             print(f"次のアクション生成エラー: {e}")
-            return f"{company_name}との詳細協議とPoC実施を提案します。"
+            return f"• {company_name}との詳細協議とPoC実施を提案します\n• 技術要件の詳細確認\n• 導入スケジュールの調整"
     
     def search_web_with_tavily(self, query: str, max_results: int = 3) -> str:
         """TAVILY APIを使用したWeb検索"""

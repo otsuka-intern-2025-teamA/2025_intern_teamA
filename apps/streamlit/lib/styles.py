@@ -140,9 +140,9 @@ def get_company_analysis_page_styles() -> str:
     return """
     <style>
     /* タイトル:負マージンを撤廃 */
-    h1.company-analysis-title {
-        font-size: 2.4rem !important;
-        margin-top: -3rem !important;
+    h3.company-analysis-title {
+        font-size: 2rem !important;
+        margin-top: -2rem !important;
         margin-bottom: 0.75rem !important;
     }
 
@@ -189,8 +189,8 @@ def get_projects_list_page_styles() -> str:
     """
     return """
     <style>
-    h1.projects-list-title {
-        font-size: 2.4rem !important;
+    h3.projects-list-title {
+        font-size: 2rem !important;
         margin-top: 0 !important;
         margin-bottom: 0.75rem !important;
     }
@@ -237,9 +237,9 @@ def get_slide_generation_page_styles() -> str:
     """スライド生成ページ専用CSS(負マージン廃止)"""
     return """
     <style>
-    h1.slide-generation-title {
-        font-size: 2.4rem !important;
-        margin-top: -4rem !important;
+    h3.slide-generation-title {
+        font-size: 2rem !important;
+        margin-top:-3rem !important;
         margin-bottom: 0.75rem !important;
     }
     /* LLM提案ビュー(text_area: disabled)の文字色を黒に */
@@ -284,12 +284,12 @@ def render_sidebar_logo_card(image_path: Path | str):
 
 
 def render_company_analysis_title(text: str):
-    st.markdown(f"<h1 class='company-analysis-title'>{text}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 class='company-analysis-title'>{text}</h3>", unsafe_allow_html=True)
 
 
 def render_projects_list_title(text: str):
-    st.markdown(f"<h1 class='projects-list-title'>{text}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 class='projects-list-title'>{text}</h3>", unsafe_allow_html=True)
 
 
 def render_slide_generation_title(text: str):
-    st.markdown(f"<h1 class='slide-generation-title'>{text}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 class='slide-generation-title'>{text}</h3>", unsafe_allow_html=True)

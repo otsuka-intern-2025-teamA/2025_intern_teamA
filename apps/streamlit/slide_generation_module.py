@@ -82,13 +82,7 @@ DB_PATH = PROJECT_ROOT / "data" / "sqlite" / "app.db"
 ###############################################################################
 
 def _ensure_session_defaults() -> None:
-    """Populate session state with default values.
-
-    Streamlit will rerun the script on most interactions, so any values
-    stored in `st.session_state` must be initialised if they do not
-    already exist.  Keys defined here are used throughout the
-    application for user input, intermediate results and persisted data.
-    """
+    """Populate session state with default values."""
     ss = st.session_state
     # Context from the selected project (set elsewhere in the app)
     ss.setdefault("selected_project", None)
@@ -123,12 +117,7 @@ def _ensure_session_defaults() -> None:
 ###############################################################################
 
 def _get_proposal_issues_from_db(proposal_id: str) -> List[Dict[str, Any]]:
-    """Retrieve previously saved proposal issues from the SQLite database.
-
-    When generating a presentation we may want to display or otherwise
-    incorporate the issues that were analysed when the proposal was
-    drafted.  This helper fetches them from `proposal_issues` table.
-    """
+    """Retrieve previously saved proposal issues from the SQLite database."""
     if not proposal_id:
         return []
     try:
@@ -160,12 +149,7 @@ def _get_proposal_issues_from_db(proposal_id: str) -> List[Dict[str, Any]]:
 
 
 def _to_float(val) -> float | None:
-    """Convert a value representing a price to a float.
-
-    Accepts strings (with commas and a leading ¥), ints or floats.  NaN
-    values are returned as None.  This helper is used to normalise
-    prices read from CSV and when formatting them for display.
-    """
+    """Convert a value representing a price to a float."""
     if val is None:
         return None
     if isinstance(val, (int, float)):
@@ -190,11 +174,7 @@ def _fmt_price(val) -> str:
 
 
 def _list_product_datasets() -> List[str]:
-    """Return a list of subfolder names under PRODUCTS_DIR.
-
-    The first entry is always "Auto" which means all datasets.  Additional
-    entries correspond to subdirectories found under `data/csv/products`.
-    """
+    """Return a list of subfolder names under PRODUCTS_DIR."""
     if not PRODUCTS_DIR.exists():
         return ["Auto"]
     ds = ["Auto"]
@@ -205,12 +185,7 @@ def _list_product_datasets() -> List[str]:
 
 
 def _gather_messages_context(item_id: str | None, history_n: int) -> str:
-    """Return the last N message exchanges (2N messages) for a project item.
-
-    If the API client is not available or the item id is None, an empty
-    string is returned.  Each message is prefixed with the role in
-    Japanese ("ユーザー" for user, "アシスタント" for assistant) and a colon.
-    """
+    """Return the last N message exchanges (2N messages) for a project item."""
     if not (item_id and api_available()):
         return ""
     try:
@@ -229,14 +204,7 @@ def _gather_messages_context(item_id: str | None, history_n: int) -> str:
 
 
 def _load_products_from_csv(dataset: str) -> pd.DataFrame:
-    """Load product catalogues from CSV files.
-
-    Each CSV file is expected to contain the columns: id, name,
-    category, price, description, tags.  Additional columns
-    image_url, image, thumbnail are optional.  If id is missing
-    it will be generated from the filename and row index.  A new
-    column source_csv is added to record the origin.
-    """
+    """Load product catalogues from CSV files."""
     frames: list[pd.DataFrame] = []
     if not PRODUCTS_DIR.exists():
         return pd.DataFrame()
@@ -289,16 +257,7 @@ def _load_products_from_csv(dataset: str) -> pd.DataFrame:
 def _extract_text_from_uploads(
     uploaded_files: List[Any], max_chars: int = 12000
 ) -> str:
-    """Extract and concatenate text from a list of uploaded files.
-
-    Supports PDF (using pypdf), DOCX (using python‑docx), PPTX (using
-    python‑pptx), CSV (using pandas), TXT and unknown files.  For
-    binary or unsupported formats only the filename is recorded.  A
-    maximum number of characters can be specified to avoid overly
-    lengthy inputs to the language model.  The result begins with
-    provenance tags such as `[PDF:<name> 抜粋]` so that the origin of
-    extracted text is clear.
-    """
+    """Extract and concatenate text from a list of uploaded files."""
     if not uploaded_files:
         return ""
     chunks: list[str] = []
@@ -400,13 +359,7 @@ def _extract_text_from_uploads(
 
 
 def _simple_tokenize(text: str) -> List[str]:
-    """A simple tokenizer used for keyword matching.
-
-    Converts the input text to lowercase, removes non alphanumeric or
-    Japanese characters, splits on whitespace and returns tokens of
-    length at least 2.  This is used as a fallback when the
-    similarity search fails.
-    """
+    """A simple tokenizer used for keyword matching."""
     text = str(text or "").lower()
     text = re.sub(r"[^a-z0-9\u3040-\u30ff\u4e00-\u9fff]+", " ", text)
     toks = text.split()
@@ -419,14 +372,7 @@ def _fallback_rank_products(
     products_df: pd.DataFrame,
     top_pool: int,
 ) -> List[Dict[str, Any]]:
-    """Simple keyword based ranking of products.
-
-    Concatenates the meeting notes and context, tokenises the result and
-    counts token occurrences in each product's concatenated fields
-    (name, category, description, tags).  Products are scored by the
-    number of matching tokens and returned in descending order of
-    score.  If the score is zero a low rank reason is given.
-    """
+    """Simple keyword based ranking of products."""
     if products_df.empty:
         return []
     query_text = (notes or "") + "\n" + (messages_ctx or "")
@@ -474,15 +420,7 @@ def _fallback_rank_products(
 ###############################################################################
 
 def _get_chat_client():
-    """Return an OpenAI or Azure OpenAI chat client and the model name.
-
-    If environment variables indicate that Azure OpenAI should be used
-    (USE_AZURE=true or AZURE_OPENAI_ENDPOINT is set) then an
-    AzureOpenAI client is created using the endpoint, API key and
-    deployment name.  Otherwise a regular OpenAI client is created
-    using OPENAI_API_KEY.  The default model is configured via
-    DEFAULT_MODEL or defaults to 'gpt-4o-mini'.
-    """
+    """Return an OpenAI or Azure OpenAI chat client and the model name."""
     use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
     if use_azure:
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -503,14 +441,7 @@ def _get_chat_client():
 
 
 def _normalize_concat_row(row: pd.Series) -> str:
-    """Concatenate and normalise fields for embedding.
-
-    The name, category, tags and description fields are concatenated,
-    converted to lowercase, excessive whitespace removed and returned as
-    a single string.  This is used when constructing embeddings for
-    similarity search.  Normalisation ensures that trivial differences
-    in whitespace do not affect similarity calculations.
-    """
+    """Concatenate and normalise fields for embedding."""
     s = f"{row.get('name','')} {row.get('category','')} {row.get('tags','')} {row.get('description','')}"
     s = s.lower()
     s = re.sub(r"\s+", " ", s).strip()
@@ -518,12 +449,7 @@ def _normalize_concat_row(row: pd.Series) -> str:
 
 
 def _embed_texts(client, texts: List[str], embed_model: str, is_azure: bool) -> np.ndarray:
-    """Call the embedding API and return vectors.
-
-    The client may be an OpenAI or AzureOpenAI client.  If the call
-    fails an exception is raised for the caller to handle.  Returned
-    embeddings are converted into an array of type float32.
-    """
+    """Call the embedding API and return vectors."""
     try:
         resp = client.embeddings.create(model=embed_model, input=texts)
         vecs = np.array([d.embedding for d in resp.data], dtype="float32")
@@ -535,15 +461,7 @@ def _embed_texts(client, texts: List[str], embed_model: str, is_azure: bool) -> 
 def _build_products_index(
     dataset: str, df: pd.DataFrame, client, embed_model: str, is_azure: bool
 ) -> Dict[str, Any]:
-    """Construct an embedding index over the product catalogue.
-
-    The index stores the embedding vectors, list of product IDs and the
-    original DataFrame.  Results are cached in session state based on
-    dataset name, length and embed model.  If embedding fails a
-    fallback TF‑IDF vectoriser is used instead.  If the fallback also
-    fails, the index will contain vecs=None which signals no vector
-    search will be performed.
-    """
+    """Construct an embedding index over the product catalogue."""
     key = f"{dataset}:{len(df)}:{embed_model}"
     cache = st.session_state.get("_emb_cache", {})
     if key in cache:
@@ -558,7 +476,7 @@ def _build_products_index(
             "model": embed_model,
         }
     except Exception:
-        # Fallback: build a TF‑IDF vectoriser
+        # Fallback: build a TF-IDF vectoriser
         try:
             from sklearn.feature_extraction.text import TfidfVectorizer
             vectorizer = TfidfVectorizer(min_df=1)
@@ -585,19 +503,11 @@ def _retrieve_by_issues(
     is_azure: bool,
     top_pool: int,
 ) -> List[Dict[str, Any]]:
-    """Perform weighted similarity search against the product index.
-
-    Each issue is embedded and weighted by its importance.  The
-    weighted average query vector is used to compute cosine similarity
-    against all product embeddings.  The top `top_pool` most similar
-    products are returned with their similarity score and a human
-    readable reason.  If the index uses a TF‑IDF fallback or has no
-    vectors then an empty list is returned.
-    """
+    """Perform weighted similarity search against the product index."""
     if not issues or not index or index.get("vecs") is None:
         return []
     vecs = index["vecs"]
-    # If TF‑IDF fallback is used, we skip similarity search
+    # If TF-IDF fallback is used, we skip similarity search
     if hasattr(vecs, "toarray") or index.get("model") == "tfidf":
         return []
     # Construct weighted query vector
@@ -636,29 +546,103 @@ def _retrieve_by_issues(
         return []
 
 
+# -------------------- 変更点1: JSON抽出を強化 --------------------
 def _extract_json(s: str) -> Dict[str, Any]:
-    """Extract a JSON object from a string.
-
-    The OpenAI responses may contain extra text before or after the JSON
-    object.  This helper attempts to parse the first top‑level JSON
-    found.  If no JSON is found an empty dictionary is returned.
+    """
+    - ```json ... ``` フェンス対応
+    - 先頭/末尾に説明文があっても抽出
+    - トップレベルが配列でも {"items":[...]} に包んで返す
     """
     s = (s or "").strip()
     if not s:
         return {}
-    if s.lstrip().startswith("{"):
-        try:
-            return json.loads(s)
-        except Exception:
-            pass
+
+    # ```json フェンス除去（```json / ``` どちらも許容）
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"\s*```$", "", s)
+
+    # まずは素直に
+    try:
+        data = json.loads(s)
+        if isinstance(data, list):
+            return {"items": data}
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        pass
+
+    # テキスト中の最初の { ... } を抜き出す
     try:
         start = s.find("{")
         end = s.rfind("}")
         if start >= 0 and end > start:
-            return json.loads(s[start : end + 1])
+            data = json.loads(s[start:end + 1])
+            if isinstance(data, list):
+                return {"items": data}
+            return data if isinstance(data, dict) else {}
     except Exception:
         return {}
     return {}
+
+
+# -------------------- 変更点2: 安全な LLM 呼び出しヘルパ --------------------
+# 置き換え：_safe_chat_json
+def _safe_chat_json(messages: List[Dict[str, str]], *, require_json: bool = True, temperature: float = 0.2) -> Dict[str, Any]:
+    """
+    LLM呼び出し（Azure/OpenAI両対応）
+    - 一部モデルが temperature をサポートしない → 自動で温度なしリトライ
+    - 一部モデルが response_format=json をサポートしない → プレーン出力でリトライ
+    - 失敗理由は st.session_state.api_error に格納
+    """
+    try:
+        client, model = _get_chat_client()
+    except Exception as e:
+        st.session_state.api_error = f"LLMクライアント初期化に失敗: {e}"
+        return {}
+
+    def _attempt(pass_temperature: bool, pass_json_mode: bool):
+        kwargs = {"model": model, "messages": messages}
+        # temperature は「明示的に許される場合のみ」付与したいが、
+        # 互換性のため最初の試行では付与 → 失敗時に温度なしで再試行する。
+        if pass_temperature:
+            kwargs["temperature"] = temperature
+        if pass_json_mode and require_json:
+            kwargs["response_format"] = {"type": "json_object"}
+        return client.chat.completions.create(**kwargs)
+
+    # 1) 温度あり + JSONモード → 2) 温度なし + JSON → 3) 温度なし + プレーン
+    resp = None
+    try:
+        resp = _attempt(pass_temperature=True, pass_json_mode=True)
+    except Exception as e1:
+        msg1 = str(e1)
+        # temperature 非対応や JSONモード非対応の可能性 → 温度なしで再試行
+        try:
+            resp = _attempt(pass_temperature=False, pass_json_mode=True)
+        except Exception as e2:
+            msg2 = str(e2)
+            # さらに JSON モードも外して再試行（プレーンテキストからJSON抽出）
+            try:
+                resp = _attempt(pass_temperature=False, pass_json_mode=False)
+            except Exception as e3:
+                st.session_state.api_error = f"LLM呼び出しに失敗: {e3}"
+                # ここまで来たら完全失敗
+                return {}
+
+    txt = (resp.choices[0].message.content or "").strip()
+    data = _extract_json(txt)
+    if not data and require_json:
+        # 念のためプレーンでもう一度（既に試しているが、明示的再試行）
+        try:
+            resp2 = client.chat.completions.create(model=model, messages=messages)
+            txt2 = (resp2.choices[0].message.content or "").strip()
+            data = _extract_json(txt2)
+        except Exception as e:
+            st.session_state.api_error = f"LLM呼び出しに失敗: {e}"
+            return {}
+
+    return data if isinstance(data, dict) else {}
+
 
 
 def _llm_pick_products(
@@ -669,18 +653,14 @@ def _llm_pick_products(
     ctx: str,
     issues: List[Dict[str, Any]] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Select the top products from the pool using an LLM.
-
-    A prompt is constructed containing the company name, meeting notes,
-    conversation context, a list of extracted issues and a catalogue of
-    candidate products.  The model is instructed to choose the best
-    `top_k` products, assign a confidence and provide a short reason in
-    Japanese.  The response is expected to be JSON; if parsing fails
-    the function returns an empty list.
-    """
+    """Select the top products from the pool using an LLM."""
     if not pool:
         return []
-    client, model = _get_chat_client()
+
+    # GPT未使用なら LLM選抜をスキップ（プール上位を採用）
+    if not st.session_state.get("slide_use_gpt_api", True):
+        return pool[:top_k]
+
     lines: List[str] = []
     for p in pool:
         desc = (p.get("description") or "")[:200]
@@ -699,8 +679,8 @@ def _llm_pick_products(
             kw = ", ".join(it.get("keywords") or [])
             parts.append(f"[{i}] {it.get('issue')} (重み={it.get('weight'):.2f}; キーワード={kw})")
         issues_text = "\n".join(parts)
+
     # Define the JSON schema expected in the response
-    schema: Dict[str, Any]
     if issues:
         schema = {
             "recommendations": [
@@ -723,6 +703,7 @@ def _llm_pick_products(
                 }
             ]
         }
+
     user = f"""あなたはB2Bプリセールスの提案プランナーです。
 以下の会社情報と商談詳細、会話文脈に基づいて、候補カタログから Top-{top_k} の製品を選び、日本語で短い理由（120字以内）と信頼度(0-1)を付けてください。
 必ずカタログに存在する id のみを使用してください。
@@ -733,31 +714,19 @@ def _llm_pick_products(
 # 課題一覧: {issues_text or "(なし)"}
 # 候補カタログ: {catalog}
 """
-    # Try calling the chat completion API with a structured response format
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-            response_format={"type": "json_object"},
-        )
-        txt = resp.choices[0].message.content or ""
-    except Exception:
-        # Fallback to a plain response if the API does not support response_format
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
-                {"role": "user", "content": user},
-            ],
-        )
-        txt = resp.choices[0].message.content or ""
-    data = _extract_json(txt)
+
+    data = _safe_chat_json(
+        [
+            {"role": "system", "content": "あなたは正確で簡潔な日本語で回答するアシスタントです。"},
+            {"role": "user", "content": user},
+        ],
+        require_json=True,
+        temperature=0.1,
+    )
     recs = data.get("recommendations", []) if isinstance(data, dict) else []
     if not recs:
         return []
+
     pool_map = {str(p["id"]): p for p in pool}
     out: List[Dict[str, Any]] = []
     for r in recs:
@@ -783,16 +752,9 @@ def _llm_pick_products(
     return out
 
 
+# -------------------- 変更点4: 要約もチェックボックス反映＆安全化 --------------------
 def _summarize_overviews_llm(cands: List[Dict[str, Any]]) -> None:
-    """Summarise product descriptions into 80 Japanese characters using an LLM.
-
-    This function iterates over the selected candidates and requests the
-    language model to create a concise 1–2 sentence summary (max 80
-    characters).  If the call fails or yields no summary, a fallback
-    truncated description or tags is used.  The summaries are
-    populated in place on the candidate dictionaries under the key
-    "overview".
-    """
+    """Summarise product descriptions into 80 Japanese characters using an LLM."""
     items: List[Dict[str, str]] = []
     has_any = False
     for c in cands:
@@ -800,73 +762,50 @@ def _summarize_overviews_llm(cands: List[Dict[str, Any]]) -> None:
         if mat:
             has_any = True
             items.append({"id": str(c.get("id") or ""), "name": c.get("name") or "", "material": str(mat)[:600]})
-    # If none of the candidates have any material to summarise, use fallback immediately
     if not has_any:
         for c in cands:
             c["overview"] = "—"
         return
-    try:
-        client, model = _get_chat_client()
-        payload = "\n".join([f"- id:{it['id']} / 名称:{it['name']}\n 内容:{it['material']}" for it in items])
-        prompt = (
-            "各製品の「製品概要」を日本語で1〜2文、最大80字で要約してください。事実の追加・誇張は禁止。"
-            " 出力は JSON のみ: {\"summaries\":[{\"id\":\"<id>\",\"overview\":\"<80字以内>\"}]}}"
-            " 入力: "
-            + payload
-        )
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-            txt = resp.choices[0].message.content or ""
-        except Exception:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            txt = resp.choices[0].message.content or ""
-        data = _extract_json(txt)
-        mp: Dict[str, str] = {}
-        if isinstance(data, dict):
-            for s in data.get("summaries", []) or []:
-                pid = str(s.get("id") or "")
-                ov = (s.get("overview") or "").strip()
-                if pid and ov:
-                    mp[pid] = ov
-        for c in cands:
-            pid = str(c.get("id") or "")
-            base = c.get("description") or c.get("tags") or ""
-            fallback = (
-                (base[:80] + ("…" if base and len(base) > 80 else ""))
-                if base else "—"
-            )
-            c["overview"] = mp.get(pid, fallback)
-    except Exception:
+
+    # GPT未使用ならフォールバック
+    if not st.session_state.get("slide_use_gpt_api", True):
         for c in cands:
             base = c.get("description") or c.get("tags") or ""
-            c["overview"] = (
-                base[:80] + ("…" if base and len(base) > 80 else "")
-                if base else "—"
-            )
+            c["overview"] = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+        return
+
+    payload = "\n".join([f"- id:{it['id']} / 名称:{it['name']}\n 内容:{it['material']}" for it in items])
+    prompt = (
+        "各製品の「製品概要」を日本語で1〜2文、最大80字で要約してください。事実の追加・誇張は禁止。\n"
+        "出力は JSON のみ: {\"summaries\":[{\"id\":\"<id>\",\"overview\":\"<80字以内>\"}]}\n"
+        "入力:\n" + payload
+    )
+    data = _safe_chat_json(
+        [
+            {"role": "system", "content": "あなたは簡潔で正確な日本語の要約を作るアシスタントです。"},
+            {"role": "user", "content": prompt},
+        ],
+        require_json=True,
+        temperature=0.2,
+    )
+
+    mp: Dict[str, str] = {}
+    if isinstance(data, dict):
+        for s in (data.get("summaries") or []):
+            pid = str(s.get("id") or "")
+            ov = (s.get("overview") or "").strip()
+            if pid and ov:
+                mp[pid] = ov
+
+    for c in cands:
+        pid = str(c.get("id") or "")
+        base = c.get("description") or c.get("tags") or ""
+        fallback = (base[:80] + ("…" if base and len(base) > 80 else "")) if base else "—"
+        c["overview"] = mp.get(pid, fallback)
 
 
 def _resolve_product_image_src(rec: Dict[str, Any]) -> str | None:
-    """Resolve the best available image source for a product record.
-
-    Tries the keys image_url, image and thumbnail in order.  If the
-    value is an HTTP(S) URL it is returned directly.  If it is a
-    relative path within the project, it is converted into an absolute
-    path.  Otherwise a placeholder image is returned.  If no image
-    exists None is returned.
-    """
+    """Resolve the best available image source for a product record."""
     for key in ("image_url", "image", "thumbnail"):
         v = rec.get(key)
         if not v:
@@ -886,44 +825,42 @@ def _resolve_product_image_src(rec: Dict[str, Any]) -> str | None:
 # Business logic: pain point analysis and product search
 ###############################################################################
 
+# -------------------- 変更点3: 課題抽出の堅牢化＆GPT使用フラグ対応 --------------------
 def _analyze_pain_points(
     notes: str,
     messages_ctx: str,
     uploads_text: str = "",
 ) -> List[Dict[str, Any]]:
-    """Analyse meeting notes, chat context and uploaded text to identify issues.
-
-    Invokes a language model to extract between 3 and 6 pain points,
-    each with a weight (0–1) and 3–6 keywords.  If the model call
-    fails or returns no usable data a fallback list of generic issues
-    is returned.  Weights are normalised to sum to 1.
-    """
+    """Analyse meeting notes, chat context and uploaded text to identify issues."""
     issues: List[Dict[str, Any]] = []
-    try:
-        client, chat_model = _get_chat_client()
+
+    # GPT未使用なら即フォールバックへ
+    if not st.session_state.get("slide_use_gpt_api", True):
+        pass
+    else:
         sys = "あなたはB2B提案の課題分析アシスタントです。日本語でJSONのみ出力してください。"
         uploads_section = f"\n\n資料抜粋:\n{uploads_text}" if uploads_text else ""
         user = (
-            "以下の情報から、解決したい課題を3〜6件抽出し、各課題に重み(0〜1)と関連キーワード(3〜6語)を付けてJSONで出力してください。"
-            " - 課題は具体的に表現する"
-            " - 重みは合計が約1になるよう相対調整"
-            " - 引用可能なら資料由来の観点も反映（ただし機密や個人情報は抽象化）"
-            f" 商談メモ: {notes}"
-            f" 会話文脈: {messages_ctx}"
+            "以下の情報から、解決したい課題を3〜6件抽出し、各課題に重み(0〜1)と関連キーワード(3〜6語)を付けてJSONで出力してください。\n"
+            "- 課題は具体的に表現する\n"
+            "- 重みは合計が約1になるよう相対調整\n"
+            "- 引用可能なら資料由来の観点も反映（機密/個人情報は抽象化）\n"
+            '出力スキーマ: {"issues":[{"issue":"<80字以内>","weight":0.0,"keywords":["k1","k2","k3"]}]}\n'
+            f"商談メモ: {notes}\n"
+            f"会話文脈: {messages_ctx}\n"
             f"{uploads_section}"
         )
-        resp = client.chat.completions.create(
-            model=chat_model,
-            messages=[
+
+        data = _safe_chat_json(
+            [
                 {"role": "system", "content": sys},
                 {"role": "user", "content": user},
             ],
-            response_format={"type": "json_object"},
+            require_json=True,
             temperature=0.2,
         )
-        txt = resp.choices[0].message.content or ""
-        data = _extract_json(txt)
-        cand = data.get("issues") if isinstance(data, dict) else data
+
+        cand = (data.get("issues") if isinstance(data, dict) else None) or (data.get("items") if isinstance(data, dict) else None)
         if isinstance(cand, list):
             for it in cand[:6]:
                 issue = str(it.get("issue") or "").strip()
@@ -936,16 +873,16 @@ def _analyze_pain_points(
                     "weight": max(0.0, min(1.0, weight)),
                     "keywords": keywords[:6],
                 })
-    except Exception:
-        pass
-    # Fallback if no issues were returned
+
+    # フォールバック（または LLMゼロ件時）
     if not issues:
         issues = [
             {"issue": "情報共有の改善", "weight": 0.34, "keywords": ["ナレッジ共有", "コミュニケーション", "ドキュメント"]},
             {"issue": "コスト最適化", "weight": 0.33, "keywords": ["費用削減", "効率化", "自動化"]},
             {"issue": "セキュリティ強化", "weight": 0.33, "keywords": ["アクセス管理", "監査", "権限"]},
         ]
-    # Normalise weights to sum to 1
+
+    # 正規化
     s = sum(x["weight"] for x in issues) or 1.0
     for x in issues:
         x["weight"] = float(x["weight"] / s)
@@ -962,18 +899,7 @@ def _search_product_candidates(
     uploaded_files: List[Any],
     issues_precomputed: List[Dict[str, Any]] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Search and select top product candidates for a proposal.
-
-    This function orchestrates the retrieval pipeline: it gathers the
-    recent conversation context, loads the product catalogue from CSV,
-    extracts text from uploaded files, runs pain point analysis (unless
-    issues are provided), builds or retrieves an embedding index,
-    performs similarity search, falls back to keyword matching if
-    necessary, selects the top products using an LLM (again with
-    fallback) and summarises product descriptions to produce an
-    overview.  The return value is a list of product dictionaries
-    containing metadata, reason, confidence score and overview.
-    """
+    """Search and select top product candidates for a proposal."""
     # Retrieve recent chat history
     ctx = _gather_messages_context(item_id, history_n)
     # Load product catalogue
@@ -988,7 +914,11 @@ def _search_product_candidates(
     use_azure = os.getenv("USE_AZURE", "").lower() == "true" or bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
     embed_model = os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT") if use_azure else os.getenv("EMBED_MODEL", "text-embedding-3-small")
     # Build or retrieve the embedding index
-    client, _ = _get_chat_client()
+    try:
+        client, _ = _get_chat_client()
+    except Exception as e:
+        st.session_state.api_error = f"埋め込み用クライアント取得に失敗: {e}"
+        client = None
     index = _build_products_index(dataset, df, client, embed_model, use_azure)
     # Perform weighted similarity search based on issues
     top_pool = max(40, top_k * 4)
@@ -1176,18 +1106,21 @@ def _render_candidates_body(recs: List[Dict[str, Any]], body_ph: st.delta_genera
 # Main rendering function
 ###############################################################################
 
+def _make_outline_preview(company_name: str, meeting_notes: str, products: List[Dict[str, Any]], overview: str) -> Dict[str, Any]:
+    """簡易アウトラインのプレビュー JSON を返す（既存互換のダミー実装）"""
+    return {
+        "company": company_name,
+        "overview": overview,
+        "meeting_notes": meeting_notes[:400],
+        "products": [
+            {"id": p.get("id"), "name": p.get("name"), "reason": p.get("reason"), "overview": p.get("overview")}
+            for p in products
+        ],
+    }
+
+
 def render_slide_generation_page() -> None:
-    """Entry point to render the slide generation page in Streamlit.
-
-    The page is structured into two main steps:
-      1. Product proposal: analyse input and context to suggest candidate products
-      2. Slide generation: use the selected products and optional template to generate a PowerPoint
-
-    The user interface mirrors the original implementation: a side bar for global
-    settings, a top section for meeting notes and file upload, a middle section
-    displaying the extracted issues and candidate products, and a bottom section
-    for slide generation with optional template upload.
-    """
+    """Entry point to render the slide generation page in Streamlit."""
     _ensure_session_defaults()
     try:
         st.set_page_config(
@@ -1336,8 +1269,10 @@ def render_slide_generation_page() -> None:
                         uploads_text_for_view or "",
                     )
                     st.session_state.analyzed_issues = issues_early
-            # Render extracted issues
+            # 課題抽出後の失敗理由をUI表示（変更点）
             issues_msg_ph.empty()
+            if st.session_state.get("api_error"):
+                st.warning(f"LLMの実行で問題が発生しました: {st.session_state.api_error}")
             _render_issues_body(issues_early, issues_body_ph)
             # Now select product candidates
             with candidates_msg_ph.container():
@@ -1443,9 +1378,9 @@ def render_slide_generation_page() -> None:
                         meeting_notes=st.session_state.slide_meeting_notes or "",
                         chat_history=chat_history,
                         products=selected,
-                        proposal_issues=proposal_issues,
-                        proposal_id=st.session_state.get("last_proposal_id"),  # データベースから製品を取得
+                        # ↓↓↓ 修正：未定義の proposal_issues を渡さない。DBから取得したものだけを渡す
                         proposal_issues=_get_proposal_issues_from_db(st.session_state.get("last_proposal_id") or ""),
+                        proposal_id=st.session_state.get("last_proposal_id"),
                         use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,
                         tavily_uses=st.session_state.slide_tavily_uses,

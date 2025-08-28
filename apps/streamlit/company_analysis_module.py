@@ -282,26 +282,27 @@ def render_company_analysis_page():
                         # ① Intent抽出
                         status.update(label="🧭 ユーザー意図を抽出中…", state="running")
                         intent = extract_user_intent(search_company, prompt.strip(), chat_history=history_str)
+                        print(intent)
                         query_seed = (intent.get("query_seed") or prompt.strip() or "overview").strip()
-                        status.write(f"・目的: {intent.get('goal') or '不明'}")
-                        status.write(f"・判断: {intent.get('decision') or '不明'}")
-                        if intent.get("timeframe"): status.write(f"・期間: {intent['timeframe']}")
+                        print(query_seed)
+                        status.write(f"・目的： {intent.get('goal') or '不明'}")
+                        status.write(f"・判断： {intent.get('decision') or '不明'}")
+                        if intent.get("timeframe"): status.write(f"・期間： {intent['timeframe']}")
 
                         # ② クエリ生成（= 総参照URL件数）
                         k = int(top_k)
                         status.update(label="🔎 クエリ作成中…", state="running")
-                        queries = generate_tavily_queries(search_company, query_seed, max_queries=k)
+                        queries = generate_tavily_queries(search_company, prompt.strip(), max_queries=k)
                         if not queries:
                             base = query_seed or "overview"
-                            queries = [f"{search_company} {base} {i+1}" for i in range(k)]
+                            queries = [f"{search_company} {base}" for i in range(k)]
                         if len(queries) > k:
                             queries = queries[:k]
                         elif len(queries) < k:
                             base = query_seed or "overview"
                             for i in range(k - len(queries)):
                                 queries.append(f"{search_company} {base} extra{i+1}")
-                        for q in queries:
-                            status.write(f"・{q}")
+                        status.write(f"生成クエリ：{queries[0]}")
 
                         # ③ Web検索（各クエリ→最大N件取得→1クエリ=1URL選定）
                         N_CANDIDATES_PER_QUERY = 3
@@ -311,7 +312,7 @@ def render_company_analysis_page():
                         for i, q in enumerate(queries):
                             hits_for_q = run_search(q, count=N_CANDIDATES_PER_QUERY)
                             hits_by_query.append(hits_for_q or [])
-                            status.write(f"クエリ{i+1}: {q} … 1件選定")
+                            # status.write(f"クエリ{i+1}: {q} … 1件選定")
                             prog.progress((i + 1) / max(1, len(queries)))
 
                         final_hits = _pick_one_per_query(hits_by_query, target_k=k)
@@ -360,6 +361,7 @@ def render_company_analysis_page():
                         # ① Intent抽出
                         status.update(label="🧭 ユーザー意図を抽出中…", state="running")
                         intent = extract_user_intent(target_company, prompt.strip(), chat_history=history_str)
+                        print(intent)
                         status.write(f"・目的・判断を抽出中…")
                         if intent.get("timeframe"): status.write(f"・期間: {intent['timeframe']}")
 

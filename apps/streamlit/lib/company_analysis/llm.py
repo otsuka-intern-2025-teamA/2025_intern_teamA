@@ -68,7 +68,7 @@ def extract_user_intent(company: str, user_input: str, chat_history: str = "") -
         f"会社名: {company}\n"
         f"ユーザー入力: {user_input}\n"
         f"チャット履歴要約(任意): {chat_history}\n"
-        "上記から、最も重要な目的/判断したいこと/制約/時間軸/KPI/主要トピックを抽出し、"
+        "上記から、ユーザーが考えていると思われる最も重要な目的/判断したいこと/主要トピックを抽出し、"
         "検索用に短いquery_seed（10語以内、名詞中心）も作ってください。"
     )
 
@@ -82,13 +82,23 @@ def extract_user_intent(company: str, user_input: str, chat_history: str = "") -
             model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.2,
+            # temperature=0.2,
         )
         content = resp.choices[0].message.content or "{}"
         return json.loads(content)
-    except Exception:
-        return {}
+    except Exception as e:
+        print(f"[extract_user_intent] error: {e}")  # ← 原因が見える
+        return _intent_fallback(user_input) 
 
+def _intent_fallback(text: str) -> dict:
+    import re
+    # ざっくり年月(例: 2025年3月) を拾う
+    m = re.search(r"(20\\d{2})年\\s*(\\d{1,2})月", text)
+    timeframe = f"{m.group(1)}年{m.group(2)}月" if m else None
+    # 名詞中心の軽いseed（空白区切り→先頭10語）
+    seed = " ".join(re.findall(r"[\\w\\u3040-\\u30FF\\u4E00-\\u9FFF]+", text))[:80]
+    return {"goal": None, "decision": None, "constraints": [], "timeframe": timeframe,
+            "kpis": [], "entities": [], "query_seed": seed or None}
 
 # 自然言語クエリを生成（既存強化：ちょうどN件）
 def generate_tavily_queries(
@@ -110,17 +120,16 @@ def generate_tavily_queries(
     model_name = "gpt-5-mini" if s.use_azure else s.default_model
 
     sys = (
-        "あなたはWebリサーチに最適な検索クエリを作る専門家です。"
-        f"与えられた会社名と質問から、重複しない ちょうど {max_queries} 個 の短い検索クエリを作ってください。"
-        "一般Web検索（Tavily/Bing等）を想定し、次を心がけてください："
-        " - 名詞中心で簡潔（10語以内）"
-        " - 日本語と英語の混在を許容（固有名詞＋一般語彙）"
-        " - 年/期間を具体化（例：2024, FY2024, 2024-Q4, market share）"
-        " - 会社名は複数のクエリに含める（少なくとも半数）"
-        " - 同義語や関連語（issues, risks, roadmap, partnership, compliance など）を分散"
-        " - 必要に応じて site: 指定を使ってよい（IR/EDINET/go.jp/PR/LinkedIn 等）"
-        "出力は JSON のみ、キーは queries（文字列配列）だけ。"
-        f'例: {{"queries": ["{company} 有価証券報告書 2024", "{company} 中期経営計画 DX 2025", "..."]}}'
+        "あなたはWebリサーチ用の検索クエリを作る専門家です。"
+        f"与えられた会社名と質問から、重複しない ちょうど {max_queries} 個 の検索クエリを作成します。"
+        "出力要件：\n"
+        " - 各クエリは “単語列”ではなく “検索フレーズ”（3〜10語、スペース区切り）\n"
+        " - 各クエリには次のうち少なくとも2要素を含める：{会社名}/{時間軸（年・月・四半期）}/{話題・情報源（例: プレスリリース, 決算短信, 有価証券報告書, 人事 異動, 導入事例, market share, site:prtimes.jp, site:go.jp など）}\n"
+        " - 会社名は半数以上のクエリに含める\n"
+        " - 同義反復は避け、言い換えや情報源を分散\n"
+        " - 日本語主体でよいが、固有名詞や一般語の英語も許容（例: market share, partnership）\n"
+        " - 出力は JSON のみ、キーは queries（文字列配列）だけ。配列長は必ず指定件数に一致\n"
+        f'例: {{"queries": ["{company} 2024年4月 プレスリリース site:prtimes.jp", "{company} 決算短信 2024", "..."]}}'
     )
     usr = (
         f"会社名: {company}\n"
@@ -165,43 +174,6 @@ def generate_tavily_queries(
             continue
         seen.add(key)
         cleaned.append(q)
-
-    # 自動補完（営業向け優先ソース）
-    def _auto_fill(company: str, intent: str, need: int) -> list[str]:
-        base = (intent or "overview").strip()
-        slots = [
-            f"{company} 決算短信 2024 OR 2025",
-            f"{company} 有価証券報告書 site:disclosure.edinet-fsa.go.jp",
-            f"{company} 中期経営計画 DX",
-            f"{company} 役員 組織図",
-            f"{company} 人事 異動 2024",
-            f"{company} 採用 募集職種 OR 採用情報",
-            f"{company} LinkedIn",
-            f"{company} 業務提携 OR 資本業務提携 OR M&A",
-            f"{company} プレスリリース site:prtimes.jp",
-            f"{company} 規制 動向 site:go.jp",
-            f"{company} 導入事例 OR 事例",
-            f"{company} {base} market share",
-            f"{company} 競合 比較 2024",
-        ]
-        out = []
-        for cand in slots:
-            if len(out) >= need:
-                break
-            if cand.lower() in seen:
-                continue
-            seen.add(cand.lower())
-            out.append(cand)
-        while len(out) < need:
-            extra = f"{company} {base} extra-{len(out)+1}"
-            if extra.lower() in seen:
-                break
-            seen.add(extra.lower())
-            out.append(extra)
-        return out
-
-    if len(cleaned) < max_queries:
-        cleaned.extend(_auto_fill(company, user_input, max_queries - len(cleaned)))
 
     if len(cleaned) > max_queries:
         cleaned = cleaned[:max_queries]

@@ -1158,16 +1158,6 @@ def render_slide_generation_page() -> None:
             key="slide_products_dataset",
             help="data/csv/products/ 配下のフォルダ。Autoは自動選択。",
         )
-        st.markdown("---")
-        st.markdown("### AI設定")
-        st.checkbox("GPT API使用", key="slide_use_gpt_api")
-        st.checkbox("TAVILY API使用", key="slide_use_tavily_api")
-        if st.session_state.slide_use_tavily_api:
-            st.selectbox(
-                "TAVILY API呼び出し回数（製品あたり）",
-                options=list(range(1, 6)),
-                key="slide_tavily_uses",
-            )
         sidebar_clear = st.button("クリア", use_container_width=True, help="提案候補と課題の表示をクリア")
         st.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
         if st.button("← 案件一覧に戻る", use_container_width=True):
@@ -1381,8 +1371,8 @@ def render_slide_generation_page() -> None:
                         # ↓↓↓ 修正：未定義の proposal_issues を渡さない。DBから取得したものだけを渡す
                         proposal_issues=_get_proposal_issues_from_db(st.session_state.get("last_proposal_id") or ""),
                         proposal_id=st.session_state.get("last_proposal_id"),
-                        use_tavily=st.session_state.slide_use_tavily_api,
-                        use_gpt=st.session_state.slide_use_gpt_api,
+                        use_tavily=True,
+                        use_gpt=True,
                         tavily_uses=st.session_state.slide_tavily_uses,
                     )
                     # Present download button
@@ -1406,7 +1396,3 @@ def render_slide_generation_page() -> None:
                             os.remove(uploaded_template_path)
                         except Exception:
                             pass
-            # Show outline preview
-            if st.session_state.slide_outline:
-                with st.expander("下書きプレビュー（JSON）", expanded=True):
-                    st.json(st.session_state.slide_outline)

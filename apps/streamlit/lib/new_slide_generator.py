@@ -32,7 +32,9 @@ class NewSlideGenerator:
                 Path("template") / "proposal_template.pptx",
             ]
             template_path = None
+            print("🔍 テンプレート探索候補:")
             for p in candidates:
+                print(f"  - {p} : exists={p.exists()}")
                 if p.exists():
                     template_path = p
                     break
@@ -51,6 +53,8 @@ class NewSlideGenerator:
         
         # テンプレート処理クラスの初期化
         self.template_processor = TemplateProcessor(str(self.template_path))
+        
+        print(f"✅ NewSlideGenerator初期化完了: {self.template_path}")
     
     def create_presentation(
         self,
@@ -60,7 +64,6 @@ class NewSlideGenerator:
         chat_history: str = "",
         products: list[dict[str, Any]] = None,
         proposal_issues: list[dict[str, Any]] = None,
-        proposal_id: str = None,
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
@@ -75,7 +78,6 @@ class NewSlideGenerator:
             chat_history: チャット履歴
             products: 製品リスト
             proposal_issues: 提案課題
-            proposal_id: 提案ID（データベースから製品を取得するために使用）
             use_tavily: TAVILY API使用フラグ
             use_gpt: GPT API使用フラグ
             tavily_uses: 製品あたりのTAVILY API呼び出し回数
@@ -83,8 +85,17 @@ class NewSlideGenerator:
         Returns:
             生成されたプレゼンテーションのバイトデータ
         """
+        print("🚀 プレゼンテーション生成開始")
+        print(f"  プロジェクト名: {project_name}")
+        print(f"  企業名: {company_name}")
+        print(f"  製品数: {len(products) if products else 0}")
+        print(f"  GPT API: {use_gpt}")
+        print(f"  TAVILY API: {use_tavily}")
+        print(f"  TAVILY使用回数: {tavily_uses}")
+        
         try:
             # 1. AIエージェントで変数を生成
+            print("🤖 AIエージェントで変数を生成中...")
             variables = self.ai_agent.generate_presentation_variables(
                 project_name=project_name,
                 company_name=company_name,
@@ -92,20 +103,32 @@ class NewSlideGenerator:
                 chat_history=chat_history,
                 products=products or [],
                 proposal_issues=proposal_issues or [],
-                proposal_id=proposal_id,
                 use_tavily=use_tavily,
                 use_gpt=use_gpt,
                 tavily_uses=tavily_uses
             )
             
+            print(f"✅ 変数生成完了: {len(variables)}件")
+            
             # 2. 変数の妥当性を検証
+            print("🔍 変数の妥当性を検証中...")
             validation = self.template_processor.validate_variables(variables)
             
+            if not validation["valid"]:
+                print(f"⚠️ 変数検証でエラーが発生: {validation['errors']}")
+                if validation["missing_placeholders"]:
+                    print(f"  不足しているプレースホルダー: {validation['missing_placeholders']}")
+            
+            if validation["warnings"]:
+                print(f"⚠️ 警告: {validation['warnings']}")
+            
             # 3. 一時テンプレートを作成
+            print("📋 一時テンプレートを作成中...")
             temp_dir = tempfile.mkdtemp()
             temp_template_path = create_temp_template(str(self.template_path), temp_dir)
             
             # 4. テンプレートを処理
+            print("⚙️ テンプレート処理中...")
             output_path = Path(temp_dir) / f"output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
             
             processed_path = self.template_processor.process_template(
@@ -115,20 +138,24 @@ class NewSlideGenerator:
             )
             
             # 5. 結果を読み込み
+            print("📖 結果を読み込み中...")
             with open(processed_path, 'rb') as f:
                 pptx_data = f.read()
+            
+            print(f"✅ プレゼンテーション生成完了: {len(pptx_data)} バイト")
             
             # 6. 一時ファイルをクリーンアップ
             try:
                 cleanup_temp_template(temp_template_path)
                 import shutil
                 shutil.rmtree(temp_dir)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"⚠️ 一時ファイルクリーンアップエラー: {e}")
             
             return pptx_data
             
         except Exception as e:
+            print(f"❌ プレゼンテーション生成でエラーが発生: {e}")
             raise
     
     def get_template_info(self) -> dict[str, Any]:
@@ -165,7 +192,6 @@ class NewSlideGenerator:
                 chat_history=chat_history,
                 products=products or [],
                 proposal_issues=proposal_issues or [],
-                proposal_id=None,  # preview_variablesではproposal_idは使用しない
                 use_tavily=use_tavily,
                 use_gpt=use_gpt,
                 tavily_uses=tavily_uses
@@ -207,6 +233,9 @@ class NewSlideGenerator:
             # 変数の妥当性を検証
             validation = self.template_processor.validate_variables(custom_variables)
             
+            if not validation["valid"]:
+                print(f"⚠️ 変数検証でエラーが発生: {validation['errors']}")
+            
             # 一時テンプレートを作成
             temp_dir = tempfile.mkdtemp()
             temp_template_path = create_temp_template(str(self.template_path), temp_dir)
@@ -229,12 +258,13 @@ class NewSlideGenerator:
                 cleanup_temp_template(temp_template_path)
                 import shutil
                 shutil.rmtree(temp_dir)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"⚠️ 一時ファイルクリーンアップエラー: {e}")
             
             return pptx_data
             
         except Exception as e:
+            print(f"❌ カスタム変数でのプレゼンテーション生成でエラーが発生: {e}")
             raise
     
     def get_supported_variables(self) -> list[str]:

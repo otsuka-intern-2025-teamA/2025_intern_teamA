@@ -135,6 +135,9 @@ class AIAgent:
                     }
                     variables.update(empty_product_vars)
                 
+                # 総コスト - 製品変数作成後に計算
+                variables["{{TOTAL_COSTS}}"] = self._calculate_total_costs_from_variables(variables, db_products)
+                
             else:
                 print(f"⚠️ データベースから製品が取得できませんでした。渡されたリストを使用します。")
                 # フォールバック: 渡されたリストを使用
@@ -155,6 +158,9 @@ class AIAgent:
                         f"{{{{PRODUCTS[{i}].NOTE}}}}": ""
                     }
                     variables.update(empty_product_vars)
+                
+                # 総コスト - 製品変数作成後に計算
+                variables["{{TOTAL_COSTS}}"] = self._calculate_total_costs_from_variables(variables, products)
         else:
             # proposal_idがない場合は渡されたリストを使用
             print(f"⚠️ proposal_idが指定されていません。渡されたリストを使用します。")
@@ -175,14 +181,14 @@ class AIAgent:
                     f"{{{{PRODUCTS[{i}].NOTE}}}}": ""
                 }
                 variables.update(empty_product_vars)
+            
+            # 総コスト - 製品変数作成後に計算
+            variables["{{TOTAL_COSTS}}"] = self._calculate_total_costs_from_variables(variables, products)
         
         # 期待効果
         variables["{{EXPECTED_IMPACTS}}"] = self._generate_expected_impacts(
             company_name, products, meeting_notes, use_gpt
         )
-        
-        # 総コスト
-        variables["{{TOTAL_COSTS}}"] = self._calculate_total_costs(products)
         
         # スケジュール計画
         variables["{{SCHEDULE_PLAN}}"] = self._generate_schedule_plan(
@@ -203,17 +209,17 @@ class AIAgent:
                 if "AGENDA" in key:
                     cleaned_variables[key] = "• 現状分析\n• 課題整理\n• 提案概要\n• 導入効果\n• 導入計画"
                 elif "CHAT_HISTORY" in key:
-                    cleaned_variables[key] = "• 商談の詳細な内容が記録されています\n• 重要なポイントが整理されています\n• 決定事項が明確化されています"
+                    cleaned_variables[key] = "• 商談の詳細な内容\n    - 重要なポイントが整理\n    - 決定事項が明確化"
                 elif "PROBLEM_HYPOTHESES" in key:
-                    cleaned_variables[key] = "• 業務効率化の課題が特定されています\n• コスト削減の機会が認識されています\n• システム統合の必要性が明確です"
+                    cleaned_variables[key] = "• 業務効率化の課題\n    - コスト削減の機会\n    - システム統合の必要性"
                 elif "PROPOSAL_SUMMARY" in key:
-                    cleaned_variables[key] = f"• {company_name}向けの包括的なソリューション提案です\n• 複数の製品を組み合わせた最適解を提供します\n• 段階的な導入でリスクを最小化します"
+                    cleaned_variables[key] = f"• {company_name}向けの包括的ソリューション\n    - 複数製品の最適組み合わせ\n    - 段階的導入でリスク最小化"
                 elif "EXPECTED_IMPACTS" in key:
-                    cleaned_variables[key] = f"• {company_name}の業務効率化が期待されます\n• 生産性向上による時間短縮が実現されます\n• システム統合による運用コスト削減が可能です"
+                    cleaned_variables[key] = f"• {company_name}の業務効率化\n    - 生産性向上による時間短縮\n    - システム統合による運用コスト削減"
                 elif "SCHEDULE_PLAN" in key:
-                    cleaned_variables[key] = f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
+                    cleaned_variables[key] = f"• {company_name}向けの段階的導入計画\n    - 第1フェーズ：PoC実施（2-3ヶ月）\n    - 第2フェーズ：本格導入（3-6ヶ月）"
                 elif "NEXT_ACTIONS" in key:
-                    cleaned_variables[key] = "• 詳細な提案書の作成を行います\n• 次回ミーティングの調整を行います\n• 技術要件の詳細確認を実施します"
+                    cleaned_variables[key] = "• 詳細な提案書の作成\n    - 次回ミーティングの調整\n    - 技術要件の詳細確認"
                 else:
                     cleaned_variables[key] = ""
             else:
@@ -246,30 +252,38 @@ class AIAgent:
 以下の情報を基に、プレゼンテーションのアジェンダを3-5行の箇条書きで生成してください。
 各項目は簡潔で具体的にしてください。
 
+【重要】プレゼンテーション用のため：
+• 各項目は20文字以内の短い文章
+• 専門用語は避け、分かりやすい表現
+• 箇条書きの各項目は独立して理解できる内容
+• 出力形式は「• 項目名」のみ（角括弧[]は使用しない）
+
 企業名: {company_name}
 商談メモ: {meeting_notes[:500]}
 提案製品数: {len(products)}件
 
 出力形式:
-• [項目1]
-• [項目2]
-• [項目3]
+• 項目1
+• 項目2
+• 項目3
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B提案の専門家です。簡潔で実用的なアジェンダを作成してください。"},
+                    {"role": "system", "content": "あなたはB2B提案の専門家です。簡潔で実用的なアジェンダを作成してください。角括弧[]は使用せず、箇条書きのみで出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
+            # 箇条書きの形式を統一し、角括弧を除去
             lines = [line.strip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
+                # 角括弧を除去
+                line = line.replace('[', '').replace(']', '')
                 if line.startswith('•') or line.startswith('-') or line.startswith('*'):
                     bullet_points.append(line)
                 else:
@@ -282,13 +296,13 @@ class AIAgent:
             return "• 現状分析\n• 課題整理\n• 提案概要\n• 導入効果\n• 導入計画"
     
     def _generate_chat_summary(self, chat_history: str, use_gpt: bool) -> str:
-        """チャット履歴のサマリー生成（箇条書き形式）"""
+        """チャット履歴のサマリー生成（階層的箇条書き形式）"""
         if not chat_history.strip():
             return "• 商談履歴はありません"
         
         if not use_gpt or not self.azure_client:
-            # フォールバック: 箇条書き形式で要約
-            lines = chat_history.split('\n')[:5]  # 最大5行
+            # フォールバック: 階層的箇条書き形式で要約
+            lines = chat_history.split('\n')[:3]  # 最大3行
             bullet_points = []
             for line in lines:
                 if line.strip():
@@ -297,40 +311,51 @@ class AIAgent:
         
         try:
             prompt = f"""
-以下の商談履歴を3-5行の箇条書きで要約してください。
-重要なポイントや決定事項を中心にまとめてください。
+以下の商談履歴を階層的箇条書きで要約してください。
+プレゼンテーション用のため、読みやすく構造化してください。
+
+【重要】プレゼンテーション用のため：
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 商談履歴:
 {chat_history[:1000]}
 
-箇条書き要約:
+階層的箇条書き要約:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたは商談履歴の要約専門家です。3-5行の箇条書きで要点を押さえた要約を作成してください。"},
+                    {"role": "system", "content": "あなたは商談履歴の要約専門家です。階層的箇条書きで要点を押さえた要約を作成してください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"チャット履歴要約エラー: {e}")
-            # フォールバック: 箇条書き形式
-            lines = chat_history.split('\n')[:5]
+            # フォールバック: 階層的箇条書き形式
+            lines = chat_history.split('\n')[:3]
             bullet_points = []
             for line in lines:
                 if line.strip():
@@ -340,15 +365,15 @@ class AIAgent:
     def _generate_problem_hypotheses(
         self, proposal_issues: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """課題仮説の生成（箇条書き形式）"""
+        """課題仮説の生成（階層的箇条書き形式）"""
         if not proposal_issues:
             return "• 具体的な課題は特定されていません"
         
         if not use_gpt or not self.azure_client:
-            # フォールバック: 箇条書き形式で課題を列挙
+            # フォールバック: 階層的箇条書き形式で課題を列挙
             bullet_points = []
-            for issue in proposal_issues[:5]:  # 最大5件
-                bullet_points.append(f"• {issue.get('issue', '')} (重み: {issue.get('weight', 0):.2f})")
+            for issue in proposal_issues[:3]:  # 最大3件
+                bullet_points.append(f"• {issue.get('issue', '')[:30]}")
             return '\n'.join(bullet_points)
         
         try:
@@ -358,54 +383,65 @@ class AIAgent:
             ])
             
             prompt = f"""
-以下の課題情報を基に、企業が抱える潜在的な問題を3-5行の箇条書きで分析してください。
-ビジネスインパクトの観点から整理してください。
+以下の課題情報を基に、企業が抱える潜在的な問題を階層的箇条書きで分析してください。
+プレゼンテーション用のため、読みやすく構造化してください。
+
+【重要】プレゼンテーション用のため：
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 課題リスト:
 {issues_text}
 
-箇条書き問題分析:
+階層的箇条書き問題分析:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B課題分析の専門家です。3-5行の箇条書きで具体的で実用的な問題分析を行ってください。"},
+                    {"role": "system", "content": "あなたはB2B課題分析の専門家です。階層的箇条書きで具体的で実用的な問題分析を行ってください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"課題仮説生成エラー: {e}")
-            # フォールバック: 箇条書き形式
+            # フォールバック: 階層的箇条書き形式
             bullet_points = []
-            for issue in proposal_issues[:5]:
-                bullet_points.append(f"• {issue.get('issue', '')} (重み: {issue.get('weight', 0):.2f})")
+            for issue in proposal_issues[:3]:
+                bullet_points.append(f"• {issue.get('issue', '')[:30]}")
             return '\n'.join(bullet_points)
     
     def _generate_proposal_summary(
         self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
-        """提案サマリーの生成（箇条書き形式）"""
+        """提案サマリーの生成（階層的箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            # フォールバック: 箇条書き形式で製品名を列挙
+            # フォールバック: 階層的箇条書き形式で製品名を列挙
             bullet_points = [f"• {company_name}向けの包括的ソリューション提案"]
-            for product in products[:4]:  # 最大4件
-                bullet_points.append(f"• {product.get('name', '')} ({product.get('category', '')})")
+            for product in products[:2]:  # 最大2件
+                bullet_points.append(f"    - {product.get('name', '')[:25]}")
             return '\n'.join(bullet_points)
         
         try:
@@ -415,44 +451,55 @@ class AIAgent:
             ])
             
             prompt = f"""
-以下の情報を基に、提案の概要を3-5行の箇条書きで作成してください。
-企業の課題解決に焦点を当てた提案内容にしてください。
+以下の情報を基に、提案の概要を階層的箇条書きで作成してください。
+プレゼンテーション用のため、読みやすく構造化してください。
+
+【重要】プレゼンテーション用のため：
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 企業名: {company_name}
 商談メモ: {meeting_notes[:300]}
 提案製品:
 {product_info}
 
-箇条書き提案概要:
+階層的箇条書き提案概要:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B提案の専門家です。3-5行の箇条書きで企業の課題解決に焦点を当てた提案概要を作成してください。"},
+                    {"role": "system", "content": "あなたはB2B提案の専門家です。階層的箇条書きで企業の課題解決に焦点を当てた提案概要を作成してください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"提案サマリー生成エラー: {e}")
-            # フォールバック: 箇条書き形式
+            # フォールバック: 階層的箇条書き形式
             bullet_points = [f"• {company_name}向けの包括的ソリューション提案"]
-            for product in products[:4]:
-                bullet_points.append(f"• {product.get('name', '')} ({product.get('category', '')})")
+            for product in products[:2]:
+                bullet_points.append(f"    - {product.get('name', '')[:25]}")
             return '\n'.join(bullet_points)
     
     def _generate_product_variables(
@@ -629,54 +676,109 @@ class AIAgent:
         self, company_name: str, products: list[dict[str, Any]], 
         meeting_notes: str, use_gpt: bool
     ) -> str:
-        """期待効果の生成（箇条書き形式）"""
+        """期待効果の生成（階層的箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"• {company_name}の業務効率化とコスト削減が期待されます\n• 生産性向上による時間短縮\n• システム統合による運用コスト削減"
+            return f"• {company_name}の業務効率化\n    - 生産性向上による時間短縮\n    - システム統合による運用コスト削減"
         
         try:
             product_names = [p.get("name", "") for p in products]
             
             prompt = f"""
-以下の情報を基に、提案製品の導入による期待効果を3-5行の箇条書きで説明してください。
-プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+以下の情報を基に、提案製品の導入による期待効果を階層的箇条書きで説明してください。
+プレゼンテーション用のため、読みやすく構造化してください。
 
 【重要】プレゼンテーション用のため：
-• 各項目は30文字以内の短い文章
-• 専門用語は避け、分かりやすい表現
-• 定量的・定性的な効果を含める
-• 箇条書きの各項目は独立して理解できる内容
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 企業名: {company_name}
 商談メモ: {meeting_notes[:300]}
 提案製品: {', '.join(product_names)}
 
-箇条書き期待効果（プレゼンテーション用）:
+階層的箇条書き期待効果（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B導入効果分析の専門家です。3-5行の箇条書きで具体的で実現可能な効果を説明してください。"},
+                    {"role": "system", "content": "あなたはB2B導入効果分析の専門家です。階層的箇条書きで具体的で実現可能な効果を説明してください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"期待効果生成エラー: {e}")
-            return f"• {company_name}の業務効率化とコスト削減が期待されます\n• 生産性向上による時間短縮\n• システム統合による運用コスト削減"
+            return f"• {company_name}の業務効率化\n    - 生産性向上による時間短縮\n    - システム統合による運用コスト削減"
+    
+    def _calculate_total_costs_from_variables(self, variables: dict[str, str], products: list[dict[str, Any]]) -> str:
+        """総コストの計算（製品変数から価格を取得）"""
+        total_products = 0.0
+        implementation_cost = 0.0
+        
+        # 製品価格の合計を計算（変数から取得）
+        for i, product in enumerate(products, 1):
+            price_key = f"{{{{PRODUCTS[{i}].PRICE}}}}"
+            price_str = variables.get(price_key, "")
+            
+            if price_str and price_str.strip():
+                try:
+                    # 文字列から数値に変換（$記号やカンマを除去）
+                    price_clean = price_str.replace('$', '').replace(',', '').strip()
+                    if price_clean and price_clean.lower() != 'nan':
+                        price_num = float(price_clean)
+                        # NaNチェック
+                        if not (price_num != price_num):
+                            total_products += price_num
+                            print(f"✅ 製品{i}の価格を追加: {price_str} -> ${price_num:,.2f}")
+                except (ValueError, TypeError) as e:
+                    print(f"⚠️ 製品{i}の価格変換エラー: {price_str} -> {e}")
+                    continue
+        
+        # 導入コストの計算（製品数に基づく）
+        if len(products) > 0:
+            # 基本導入コスト
+            base_implementation = 2000.0  # $2,000
+            
+            # 製品数に応じた追加コスト
+            if len(products) <= 3:
+                additional_cost = len(products) * 500.0  # 製品1つあたり$500
+            elif len(products) <= 6:
+                additional_cost = len(products) * 400.0  # 製品1つあたり$400
+            else:
+                additional_cost = len(products) * 300.0  # 製品1つあたり$300
+            
+            implementation_cost = base_implementation + additional_cost
+        
+        # 総コスト
+        total_cost = total_products + implementation_cost
+        
+        print(f"💰 総コスト計算: 製品={total_products:,.2f}, 導入={implementation_cost:,.2f}, 合計={total_cost:,.2f}")
+        
+        if total_cost > 0:
+            # プレゼンテーション用の階層的テキスト形式で返す
+            return f"• 総投資額：${total_cost:,.2f}\n    - 製品コスト：${total_products:,.2f}\n    - 導入コスト：${implementation_cost:,.2f}"
+        else:
+            return "• 総投資額：$0.00"
     
     def _calculate_total_costs(self, products: list[dict[str, Any]]) -> str:
         """総コストの計算（製品価格 + 導入コスト）"""
@@ -723,108 +825,118 @@ class AIAgent:
         total_cost = total_products + implementation_cost
         
         if total_cost > 0:
-            # プレゼンテーション用のテキスト形式で返す
-            return f"総投資額：${total_cost:,.2f}\n（製品：${total_products:,.2f} + 導入：${implementation_cost:,.2f}）"
+            # プレゼンテーション用の階層的テキスト形式で返す
+            return f"• 総投資額：${total_cost:,.2f}\n    - 製品コスト：${total_products:,.2f}\n    - 導入コスト：${implementation_cost:,.2f}"
         else:
-            return "総投資額：$0.00"
+            return "• 総投資額：$0.00"
     
     def _generate_schedule_plan(
         self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """スケジュール計画の生成（箇条書き形式）"""
+        """スケジュール計画の生成（階層的箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
+            return f"• {company_name}向けの段階的導入計画\n    - 第1フェーズ：PoC実施（2-3ヶ月）\n    - 第2フェーズ：本格導入（3-6ヶ月）"
         
         try:
             prompt = f"""
-以下の情報を基に、製品導入のスケジュール計画を3-5行の箇条書きで作成してください。
-プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+以下の情報を基に、製品導入のスケジュール計画を階層的箇条書きで作成してください。
+プレゼンテーション用のため、読みやすく構造化してください。
 
 【重要】プレゼンテーション用のため：
-• 各項目は30文字以内の短い文章
-• 専門用語は避け、分かりやすい表現
-• 現実的で実行可能な計画
-• 箇条書きの各項目は独立して理解できる内容
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-箇条書き導入スケジュール計画（プレゼンテーション用）:
+階層的箇条書き導入スケジュール計画（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B導入計画の専門家です。3-5行の箇条書きで現実的で実行可能なスケジュールを作成してください。"},
+                    {"role": "system", "content": "あなたはB2B導入計画の専門家です。階層的箇条書きで現実的で実行可能なスケジュールを作成してください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"スケジュール計画生成エラー: {e}")
-            return f"• {company_name}向けの段階的導入計画を提案します\n• 第1フェーズ：PoC実施（2-3ヶ月）\n• 第2フェーズ：本格導入（3-6ヶ月）"
+            return f"• {company_name}向けの段階的導入計画\n    - 第1フェーズ：PoC実施（2-3ヶ月）\n    - 第2フェーズ：本格導入（3-6ヶ月）"
     
     def _generate_next_actions(
         self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
     ) -> str:
-        """次のアクションの生成（箇条書き形式）"""
+        """次のアクションの生成（階層的箇条書き形式）"""
         if not use_gpt or not self.azure_client:
-            return f"• {company_name}との詳細協議とPoC実施を提案します\n• 技術要件の詳細確認\n• 導入スケジュールの調整"
+            return f"• {company_name}との詳細協議とPoC実施\n    - 技術要件の詳細確認\n    - 導入スケジュールの調整"
         
         try:
             prompt = f"""
-以下の情報を基に、提案後の次のアクションを3-5行の箇条書きで作成してください。
-プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+以下の情報を基に、提案後の次のアクションを階層的箇条書きで作成してください。
+プレゼンテーション用のため、読みやすく構造化してください。
 
 【重要】プレゼンテーション用のため：
-• 各項目は30文字以内の短い文章
-• 専門用語は避け、分かりやすい表現
-• 具体的で実行可能なアクション
-• 箇条書きの各項目は独立して理解できる内容
+• メインポイントは「• テーマ」形式
+• サブポイントは「    - 詳細」形式（4文字のインデント）
+• 各メインポイントは20文字以内
+• サブポイントは30文字以内
+• 最大3つのメインポイントまで
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-箇条書き次のアクション（プレゼンテーション用）:
+階層的箇条書き次のアクション（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[
-                    {"role": "system", "content": "あなたはB2B提案後のアクション計画の専門家です。3-5行の箇条書きで具体的で実行可能なアクションを提案してください。"},
+                    {"role": "system", "content": "あなたはB2B提案後のアクション計画の専門家です。階層的箇条書きで具体的で実行可能なアクションを提案してください。メインポイントは「•」、サブポイントは「    -」で出力してください。"},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=5000
             )
             
             content = response.choices[0].message.content or ""
-            # 箇条書きの形式を統一
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            # 階層的箇条書きの形式を統一
+            lines = [line.rstrip() for line in content.split('\n') if line.strip()]
             bullet_points = []
             for line in lines:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                if line.startswith('•'):
                     bullet_points.append(line)
+                elif line.startswith('    -') or line.startswith('  -'):
+                    bullet_points.append(line)
+                elif line.startswith('-'):
+                    bullet_points.append(f"    {line}")
                 else:
                     bullet_points.append(f"• {line}")
             
-            return '\n'.join(bullet_points[:5])  # 最大5行
+            return '\n'.join(bullet_points[:8])  # 最大8行（メイン3行+サブ5行）
             
         except Exception as e:
             print(f"次のアクション生成エラー: {e}")
-            return f"• {company_name}との詳細協議とPoC実施を提案します\n• 技術要件の詳細確認\n• 導入スケジュールの調整"
+            return f"• {company_name}との詳細協議とPoC実施\n    - 技術要件の詳細確認\n    - 導入スケジュールの調整"
     
     def get_products_from_db(self, proposal_id: str) -> list[dict[str, Any]]:
         """データベースから提案製品を取得"""

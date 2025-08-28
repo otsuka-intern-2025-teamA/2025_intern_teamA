@@ -838,16 +838,36 @@ def _analyze_pain_points(
     if not st.session_state.get("slide_use_gpt_api", True):
         pass
     else:
-        sys = "あなたはB2B提案の課題分析アシスタントです。日本語でJSONのみ出力してください。"
+        sys = (
+            "あなたはB2B提案の課題分析アシスタントです。"
+            "必ず日本語のJSONのみを出力してください。前後に説明・マークダウン・余計な文字を出さないでください。"
+            "厳格な出力要件："
+            "1) ルートは `{\"issues\":[...]} のみ。"
+            "2) 各要素は {\"issue\":\"<80字以内>\",\"weight\":0.00〜1.00 の数値,\"keywords\":[日本語3〜6語]}。"
+            "3) weight の合計は 0.95〜1.05（約1）に収める。"
+            "4) keywords は重複不可・名詞中心・ベンダー名/機密は避ける。"
+            "5) null/空配列/未定義キー/末尾カンマを禁止。"
+            "情報源の優先度：商談メモ > 商談資料 >> 会話文脈。矛盾があれば商談メモを優先し、"
+            "会話文脈は不足補完や具体化のヒントに限定して用いる。"
+            "抽出方針：抽象語の羅列を避け、観測可能な状態や制約・ボトルネックを短く具体化する。"
+        )
         uploads_section = f"\n\n資料抜粋:\n{uploads_text}" if uploads_text else ""
         user = (
             "以下の情報から、解決したい課題を3〜6件抽出し、各課題に重み(0〜1)と関連キーワード(3〜6語)を付けてJSONで出力してください。\n"
-            "- 課題は具体的に表現する\n"
-            "- 重みは合計が約1になるよう相対調整\n"
-            "- 引用可能なら資料由来の観点も反映（機密/個人情報は抽象化）\n"
+            "【重要】情報源の使用順序と扱い：\n"
+            "  1) 商談メモ（最優先）：資料で明文化されない痛点の補強に使用\n"
+            "  2) 商談資料（次点）：明示的な要件・制約・測定値・運用実態・組織事情を抽出\n"
+            "  3) 会話文脈（補助）：上記を具体化するヒントや語彙補完のみに使用\n"
+            "矛盾時は商談資料を採用し、会話文脈は根拠にしないこと。\n"
+            "出力要件：\n"
+            "- 課題は80字以内で具体（観測可能な現象・業務プロセス・制約・目標とのギャップを明示）\n"
+            "- 似通う内容は統合し、重複を作らない\n"
+            "- keywordsは日本語名詞3〜6語、ツール名/機密/個人情報は抽象化（例：具体社名→「SFA」等）\n"
+            "- weightは相対重要度。合計が約1になるよう0.01刻み程度で調整\n"
+            "- JSON以外の文字を一切出力しない\n"
             '出力スキーマ: {"issues":[{"issue":"<80字以内>","weight":0.0,"keywords":["k1","k2","k3"]}]}\n'
-            f"商談メモ: {notes}\n"
-            f"会話文脈: {messages_ctx}\n"
+            f"【商談メモ（次点）】\n{notes}\n"
+            f"【会話文脈（補助）】\n{messages_ctx}\n"
             f"{uploads_section}"
         )
 
@@ -1062,10 +1082,6 @@ def _render_issues_body(issues: List[Dict[str, Any]], body_ph: st.delta_generato
         for i, it in enumerate(issues, start=1):
             with st.container(border=True):
                 st.markdown(f"**{i}. {it.get('issue','—')}**")
-                st.caption(f"重み: {it.get('weight',0):.2f}")
-                kws = it.get("keywords") or []
-                if kws:
-                    st.markdown("関連キーワード: " + " / ".join(kws))
 
 
 def _render_candidates_body(recs: List[Dict[str, Any]], body_ph: st.delta_generator.DeltaGenerator) -> None:

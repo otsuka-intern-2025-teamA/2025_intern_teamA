@@ -1017,7 +1017,13 @@ def render_slide_generation_page():
                     st.error(f"プレゼンテーション生成でエラーが発生しました: {e}")
                     st.info("下書きのみ作成されました。")
 
-    # 下書きプレビュー
-    if st.session_state.slide_outline:
-        with st.expander("下書きプレビュー（JSON）", expanded=True):
-            st.json(st.session_state.slide_outline)
+                finally:
+                    if uploaded_template_path and os.path.exists(uploaded_template_path):
+                        try:
+                            os.remove(uploaded_template_path)
+                        except Exception:
+                            pass
+            # Show outline preview
+            if st.session_state.slide_outline:
+                with st.expander("下書きプレビュー（JSON）", expanded=True):
+                    st.json(st.session_state.slide_outline)

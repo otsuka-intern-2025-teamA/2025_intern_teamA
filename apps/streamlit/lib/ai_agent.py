@@ -638,13 +638,19 @@ class AIAgent:
             
             prompt = f"""
 以下の情報を基に、提案製品の導入による期待効果を3-5行の箇条書きで説明してください。
-定量的・定性的な効果を含めてください。
+プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+
+【重要】プレゼンテーション用のため：
+• 各項目は30文字以内の短い文章
+• 専門用語は避け、分かりやすい表現
+• 定量的・定性的な効果を含める
+• 箇条書きの各項目は独立して理解できる内容
 
 企業名: {company_name}
 商談メモ: {meeting_notes[:300]}
 提案製品: {', '.join(product_names)}
 
-箇条書き期待効果:
+箇条書き期待効果（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(
@@ -717,9 +723,10 @@ class AIAgent:
         total_cost = total_products + implementation_cost
         
         if total_cost > 0:
-            return f"${total_cost:,.2f}"
+            # プレゼンテーション用のテキスト形式で返す
+            return f"総投資額：${total_cost:,.2f}\n（製品：${total_products:,.2f} + 導入：${implementation_cost:,.2f}）"
         else:
-            return "$0.00"
+            return "総投資額：$0.00"
     
     def _generate_schedule_plan(
         self, company_name: str, products: list[dict[str, Any]], use_gpt: bool
@@ -731,12 +738,18 @@ class AIAgent:
         try:
             prompt = f"""
 以下の情報を基に、製品導入のスケジュール計画を3-5行の箇条書きで作成してください。
-現実的で実行可能な計画にしてください。
+プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+
+【重要】プレゼンテーション用のため：
+• 各項目は30文字以内の短い文章
+• 専門用語は避け、分かりやすい表現
+• 現実的で実行可能な計画
+• 箇条書きの各項目は独立して理解できる内容
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-箇条書き導入スケジュール計画:
+箇条書き導入スケジュール計画（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(
@@ -774,12 +787,18 @@ class AIAgent:
         try:
             prompt = f"""
 以下の情報を基に、提案後の次のアクションを3-5行の箇条書きで作成してください。
-具体的で実行可能なアクションにしてください。
+プレゼンテーション用の簡潔で分かりやすい文章にしてください。
+
+【重要】プレゼンテーション用のため：
+• 各項目は30文字以内の短い文章
+• 専門用語は避け、分かりやすい表現
+• 具体的で実行可能なアクション
+• 箇条書きの各項目は独立して理解できる内容
 
 企業名: {company_name}
 提案製品数: {len(products)}件
 
-箇条書き次のアクション:
+箇条書き次のアクション（プレゼンテーション用）:
 """
             
             response = self.azure_client.chat.completions.create(

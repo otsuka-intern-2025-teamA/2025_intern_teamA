@@ -63,6 +63,7 @@ class AIAgent:
         chat_history: str,
         products: list[dict[str, Any]],
         proposal_issues: list[dict[str, Any]],
+        proposal_id: str = None,
         use_tavily: bool = True,
         use_gpt: bool = True,
         tavily_uses: int = 1
@@ -110,12 +111,70 @@ class AIAgent:
             company_name, products, meeting_notes, use_gpt
         )
         
-        # 製品変数
-        for i, product in enumerate(products, 1):
-            product_vars = self._generate_product_variables(
-                product, i, use_tavily, use_gpt, tavily_uses
-            )
-            variables.update(product_vars)
+        # 製品変数 - データベースから取得または渡されたリストを使用
+        if proposal_id:
+            # データベースから製品を取得
+            db_products = self.get_products_from_db(proposal_id)
+            if db_products:
+                print(f"✅ データベースから{len(db_products)}件の製品を取得して変数を作成")
+                for i, product in enumerate(db_products, 1):
+                    product_vars = self._generate_product_variables(
+                        product, i, use_tavily, use_gpt, tavily_uses
+                    )
+                    variables.update(product_vars)
+                
+                # 不足している製品変数を空文字で埋める（テンプレートの全プレースホルダーを置換するため）
+                max_products_in_template = 9  # テンプレートには9行分の製品プレースホルダーがある
+                for i in range(len(db_products) + 1, max_products_in_template + 1):
+                    empty_product_vars = {
+                        f"{{{{PRODUCTS[{i}].NAME}}}}": "",
+                        f"{{{{PRODUCTS[{i}].CATEGORY}}}}": "",
+                        f"{{{{PRODUCTS[{i}].PRICE}}}}": "",
+                        f"{{{{PRODUCTS[{i}].REASON}}}}": "",
+                        f"{{{{PRODUCTS[{i}].NOTE}}}}": ""
+                    }
+                    variables.update(empty_product_vars)
+                
+            else:
+                print(f"⚠️ データベースから製品が取得できませんでした。渡されたリストを使用します。")
+                # フォールバック: 渡されたリストを使用
+                for i, product in enumerate(products, 1):
+                    product_vars = self._generate_product_variables(
+                        product, i, use_tavily, use_gpt, tavily_uses
+                    )
+                    variables.update(product_vars)
+                
+                # 不足している製品変数を空文字で埋める
+                max_products_in_template = 9
+                for i in range(len(products) + 1, max_products_in_template + 1):
+                    empty_product_vars = {
+                        f"{{{{PRODUCTS[{i}].NAME}}}}": "",
+                        f"{{{{PRODUCTS[{i}].CATEGORY}}}}": "",
+                        f"{{{{PRODUCTS[{i}].PRICE}}}}": "",
+                        f"{{{{PRODUCTS[{i}].REASON}}}}": "",
+                        f"{{{{PRODUCTS[{i}].NOTE}}}}": ""
+                    }
+                    variables.update(empty_product_vars)
+        else:
+            # proposal_idがない場合は渡されたリストを使用
+            print(f"⚠️ proposal_idが指定されていません。渡されたリストを使用します。")
+            for i, product in enumerate(products, 1):
+                product_vars = self._generate_product_variables(
+                    product, i, use_tavily, use_gpt, tavily_uses
+                )
+                variables.update(product_vars)
+            
+            # 不足している製品変数を空文字で埋める
+            max_products_in_template = 9
+            for i in range(len(products) + 1, max_products_in_template + 1):
+                empty_product_vars = {
+                    f"{{{{PRODUCTS[{i}].NAME}}}}": "",
+                    f"{{{{PRODUCTS[{i}].CATEGORY}}}}": "",
+                    f"{{{{PRODUCTS[{i}].PRICE}}}}": "",
+                    f"{{{{PRODUCTS[{i}].REASON}}}}": "",
+                    f"{{{{PRODUCTS[{i}].NOTE}}}}": ""
+                }
+                variables.update(empty_product_vars)
         
         # 期待効果
         variables["{{EXPECTED_IMPACTS}}"] = self._generate_expected_impacts(
@@ -156,9 +215,21 @@ class AIAgent:
                 elif "NEXT_ACTIONS" in key:
                     cleaned_variables[key] = "• 詳細な提案書の作成を行います\n• 次回ミーティングの調整を行います\n• 技術要件の詳細確認を実施します"
                 else:
-                    cleaned_variables[key] = "• 情報を準備中"
+                    cleaned_variables[key] = ""
             else:
                 cleaned_variables[key] = value
+        
+        # 最終的な変数の確認
+        print(f"\n🎯 最終的に作成された変数一覧:")
+        product_vars = {k: v for k, v in cleaned_variables.items() if "PRODUCTS" in k}
+        if product_vars:
+            print(f"📦 製品変数 ({len(product_vars)}件):")
+            for key, value in product_vars.items():
+                print(f"   {key}: {value}")
+        else:
+            print("⚠️ 製品変数が作成されていません！")
+        
+        print(f"📊 全変数数: {len(cleaned_variables)}件")
         
         return cleaned_variables
     
@@ -392,75 +463,113 @@ class AIAgent:
         variables = {}
         
         # 基本情報
-        variables[f"{{{{PRODUCTS[{index}].NAME}}}}"] = product.get("name", "")
-        variables[f"{{{{PRODUCTS[{index}].CATEGORY}}}}"] = product.get("category", "")
+        name_key = f"{{{{PRODUCTS[{index}].NAME}}}}"
+        category_key = f"{{{{PRODUCTS[{index}].CATEGORY}}}}"
+        price_key = f"{{{{PRODUCTS[{index}].PRICE}}}}"
+        reason_key = f"{{{{PRODUCTS[{index}].REASON}}}}"
+        
+        variables[name_key] = product.get("name", "")
+        variables[category_key] = product.get("category", "")
         
         # 価格
         price = product.get("price")
-        if price is not None:
+        if price is not None and str(price).strip():
             try:
                 price_float = float(price)
-                variables[f"{{{{PRODUCTS[{index}].PRICE}}}}"] = f"${price_float:,.2f}"
+                variables[price_key] = f"${price_float:,.2f}"
             except (ValueError, TypeError):
-                variables[f"{{{{PRODUCTS[{index}].PRICE}}}}"] = "$0.00"
+                # 価格が無効な場合は推定
+                variables[price_key] = self._estimate_product_price(
+                    product, use_gpt, use_tavily
+                )
         else:
-            # 価格がない場合はLLMで推定
-            variables[f"{{{{PRODUCTS[{index}].PRICE}}}}"] = self._estimate_product_price(
-                product, use_gpt
+            # 価格がない場合は推定（TAVILY API + LLM + フォールバック）
+            variables[price_key] = self._estimate_product_price(
+                product, use_gpt, use_tavily
             )
         
         # 選択理由
-        variables[f"{{{{PRODUCTS[{index}].REASON}}}}"] = self._generate_product_reason(
+        variables[reason_key] = self._generate_product_reason(
             product, use_gpt
         )
         
         return variables
     
-    def _estimate_product_price(self, product: dict[str, Any], use_gpt: bool) -> str:
-        """製品価格の推定"""
-        if not use_gpt or not self.azure_client:
-            return "$1,000.00"  # デフォルト価格
+    def _estimate_product_price(self, product: dict[str, Any], use_gpt: bool, use_tavily: bool = True) -> str:
+        """製品価格の推定（TAVILY API + LLM + フォールバック）"""
+        # 1. まずTAVILY APIで価格を検索
+        if use_tavily and self.tavily_client:
+            tavily_price = self._estimate_product_price_with_tavily(product)
+            if tavily_price:
+                print(f"✅ TAVILY APIで価格を発見: {product.get('name', '')} = {tavily_price}")
+                return tavily_price
         
-        try:
-            prompt = f"""
+        # 2. TAVILY APIで見つからない場合はLLMで推定
+        if use_gpt and self.azure_client:
+            try:
+                prompt = f"""
 以下の製品の推定価格を米ドルで教えてください。
 市場価格を考慮して現実的な価格を提示してください。
+価格のみを返してください（例：$1,500.00）。
 
 製品名: {product.get('name', '')}
 カテゴリ: {product.get('category', '')}
-説明: {product.get('description', '')[:200]}
+説明: {product.get('overview', '')[:200]}
 
 推定価格（米ドル）:
 """
-            
-            response = self.azure_client.chat.completions.create(
-                model="gpt-5-mini",
-                messages=[
-                    {"role": "system", "content": "あなたは製品価格推定の専門家です。現実的な市場価格を提示してください。"},
-                    {"role": "user", "content": prompt}
-                ],
-                max_completion_tokens=5000
-            )
-            
-            content = response.choices[0].message.content
-            if content is None:
-                return "$1,000.00"
-            # 価格の抽出
-            import re
-            price_match = re.search(r'\$[\d,]+\.?\d*', content)
-            if price_match:
-                return price_match.group()
-            else:
-                return "$1,000.00"
                 
-        except Exception as e:
-            print(f"価格推定エラー: {e}")
-            return "$1,000.00"
+                response = self.azure_client.chat.completions.create(
+                    model="gpt-5-mini",
+                    messages=[
+                        {"role": "system", "content": "あなたは製品価格推定の専門家です。価格のみを返してください（例：$1,500.00）。"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_completion_tokens=100
+                )
+                
+                content = response.choices[0].message.content
+                if content:
+                    # 価格の抽出
+                    import re
+                    price_match = re.search(r'\$[\d,]+\.?\d*', content)
+                    if price_match:
+                        price_str = price_match.group()
+                        print(f"✅ LLMで価格を推定: {product.get('name', '')} = {price_str}")
+                        return price_str
+                        
+            except Exception as e:
+                print(f"LLM価格推定エラー: {e}")
+        
+        # 3. フォールバック: カテゴリベースのデフォルト価格
+        category = product.get('category', '').lower()
+        default_prices = {
+            'cpu': '$300.00',
+            'memory': '$150.00',
+            'storage': '$200.00',
+            'network': '$500.00',
+            'software': '$1,000.00',
+            'hardware': '$800.00',
+            'service': '$2,000.00'
+        }
+        
+        for cat_key, default_price in default_prices.items():
+            if cat_key in category:
+                print(f"⚠️ カテゴリベースのデフォルト価格を使用: {product.get('name', '')} = {default_price}")
+                return default_price
+        
+        # 4. 最終フォールバック
+        print(f"⚠️ 最終フォールバック価格を使用: {product.get('name', '')} = $1,000.00")
+        return "$1,000.00"
     
     def _generate_product_reason(self, product: dict[str, Any], use_gpt: bool) -> str:
         """製品選択理由の生成"""
+        # データベースに理由がある場合はそれを使用
+        if product.get("reason") and str(product.get("reason")).strip():
+            return str(product.get("reason")).strip()
+        
         if not use_gpt or not self.azure_client:
-            return product.get("reason", "製品の特性と企業ニーズの適合性")
+            return "製品の特性と企業ニーズの適合性"
         
         try:
             prompt = f"""
@@ -469,7 +578,7 @@ class AIAgent:
 
 製品名: {product.get('name', '')}
 カテゴリ: {product.get('category', '')}
-説明: {product.get('description', '')[:300]}
+説明: {product.get('overview', '')[:300]}
 
 選択理由:
 """
@@ -642,30 +751,103 @@ class AIAgent:
             print(f"次のアクション生成エラー: {e}")
             return f"• {company_name}との詳細協議とPoC実施を提案します\n• 技術要件の詳細確認\n• 導入スケジュールの調整"
     
-    def search_web_with_tavily(self, query: str, max_results: int = 3) -> str:
-        """TAVILY APIを使用したWeb検索"""
+    def get_products_from_db(self, proposal_id: str) -> list[dict[str, Any]]:
+        """データベースから提案製品を取得"""
+        try:
+            import sqlite3
+            from pathlib import Path
+            
+            # データベースパスの設定
+            project_root = Path(__file__).parent.parent.parent.parent
+            db_path = project_root / "data" / "sqlite" / "app.db"
+            
+            if not db_path.exists():
+                print(f"⚠️ データベースファイルが見つかりません: {db_path}")
+                return []
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT rank, product_id, name, category, price, reason, overview, score, source_csv, image_url
+                    FROM proposal_products
+                    WHERE proposal_id = ?
+                    ORDER BY rank
+                """, (proposal_id,))
+                
+                rows = cursor.fetchall()
+                products = []
+                
+                for row in rows:
+                    product = {
+                        "rank": row[0],
+                        "product_id": row[1],
+                        "name": row[2] or "",
+                        "category": row[3] or "",
+                        "price": row[4],
+                        "reason": row[5] or "",
+                        "overview": row[6] or "",
+                        "score": row[7],
+                        "source_csv": row[8] or "",
+                        "image_url": row[9] or ""
+                    }
+                    products.append(product)
+                    print(f"📋 製品データ: rank={product['rank']}, name='{product['name']}', category='{product['category']}', price='{product['price']}', reason='{product['reason']}'")
+                
+                print(f"✅ データベースから{len(products)}件の製品を取得: proposal_id={proposal_id}")
+                return products
+                
+        except Exception as e:
+            print(f"❌ データベースからの製品取得でエラーが発生: {e}")
+            return []
+    
+    def _estimate_product_price_with_tavily(self, product: dict[str, Any]) -> str:
+        """TAVILY APIを使用して製品価格を検索"""
         if not self.tavily_client:
-            return "あいうえお"  # デフォルトテキスト
+            return None
         
         try:
+            # 製品名とカテゴリで検索クエリを作成
+            search_query = f"{product.get('name', '')} {product.get('category', '')} price USD"
+            
             response = self.tavily_client.search(
-                query=query,
+                query=search_query,
                 search_depth="basic",
-                max_results=max_results
+                max_results=3
             )
             
             if response.get("results"):
-                results = []
-                for result in response["results"][:max_results]:
-                    title = result.get("title", "")
-                    content = result.get("content", "")
-                    if title and content:
-                        results.append(f"{title}: {content[:100]}...")
-                
-                return "\n".join(results)
-            else:
-                return "あいうえお"
-                
+                # 検索結果から価格情報を抽出
+                for result in response["results"]:
+                    content = result.get("content", "").lower()
+                    # 価格パターンを検索
+                    import re
+                    price_patterns = [
+                        r'\$[\d,]+\.?\d*',  # $1,000.00
+                        r'[\d,]+\.?\d*\s*dollars?',  # 1,000.00 dollars
+                        r'[\d,]+\.?\d*\s*usd',  # 1,000.00 USD
+                        r'[\d,]+\.?\d*\s*\$'   # 1,000.00 $
+                    ]
+                    
+                    for pattern in price_patterns:
+                        matches = re.findall(pattern, content)
+                        if matches:
+                            # 最初に見つかった価格を使用
+                            price_str = matches[0]
+                            # 数値部分を抽出してフォーマット
+                            if price_str.startswith('$'):
+                                return price_str
+                            else:
+                                # 数値部分を抽出
+                                num_match = re.search(r'[\d,]+\.?\d*', price_str)
+                                if num_match:
+                                    try:
+                                        price_num = float(num_match.group().replace(',', ''))
+                                        return f"${price_num:,.2f}"
+                                    except ValueError:
+                                        continue
+            
+            return None
+            
         except Exception as e:
-            print(f"TAVILY検索エラー: {e}")
-            return "あいうえお"
+            print(f"TAVILY価格検索エラー: {e}")
+            return None

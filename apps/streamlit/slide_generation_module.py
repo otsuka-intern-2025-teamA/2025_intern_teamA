@@ -990,6 +990,7 @@ def render_slide_generation_page():
                         chat_history=chat_history,
                         products=selected,
                         proposal_issues=proposal_issues,
+                        proposal_id=st.session_state.get("last_proposal_id"),  # データベースから製品を取得
                         use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,
                         tavily_uses=st.session_state.slide_tavily_uses

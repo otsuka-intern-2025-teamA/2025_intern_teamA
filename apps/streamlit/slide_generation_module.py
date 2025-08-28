@@ -1443,6 +1443,8 @@ def render_slide_generation_page() -> None:
                         meeting_notes=st.session_state.slide_meeting_notes or "",
                         chat_history=chat_history,
                         products=selected,
+                        proposal_issues=proposal_issues,
+                        proposal_id=st.session_state.get("last_proposal_id"),  # データベースから製品を取得
                         proposal_issues=_get_proposal_issues_from_db(st.session_state.get("last_proposal_id") or ""),
                         use_tavily=st.session_state.slide_use_tavily_api,
                         use_gpt=st.session_state.slide_use_gpt_api,

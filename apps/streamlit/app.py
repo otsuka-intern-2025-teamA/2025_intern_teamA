@@ -4,11 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-
 import streamlit as st
-
-# from apps.streamlit.const import HIDE_ST_STYLE
-# st.markdown(HIDE_ST_STYLE, unsafe_allow_html=True)
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "company_analysis" / ".env", override=False)
 
@@ -32,10 +28,10 @@ from lib.api import APIError, api_available, format_date, get_api_client
 # 共通スタイル + HTMLヘルパー
 from lib.styles import (
     apply_main_styles,
-    apply_projects_list_page_styles,  # ← このページ専用CSS(サイドバー圧縮/ロゴカード等)
-    apply_title_styles,  # ← タイトルの基本スタイルを適用
-    render_projects_list_title,  # ← タイトル描画
-    render_sidebar_logo_card,  # ← サイドバー上部ロゴ
+    apply_projects_list_page_styles,  # ← このページ専用CSS
+    apply_title_styles,               # ← タイトル基本スタイル
+    render_projects_list_title,       # ← タイトル描画
+    render_sidebar_logo_card,         # ← サイドバー上部ロゴ
 )
 from slide_generation_module import render_slide_generation_page
 
@@ -54,7 +50,7 @@ except Exception:
 # ---- 共通スタイル適用(サイドバーを出す)
 apply_main_styles(hide_sidebar=False, hide_header=True)
 apply_title_styles()
-apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/サイドバー圧縮
+apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/カード装飾など
 
 # ---- セッション初期化
 if "selected_project" not in st.session_state:
@@ -301,7 +297,7 @@ else:
                         "status": "調査中",  # デフォルトステータス
                         "created": format_date(created_raw),
                         "updated": format_date(updated_raw),
-                        "summary": item.get("description") or "—",
+                        "summary": item.get("description") or "",
                         "transaction_count": item.get("transaction_count", 0),
                         "total_amount": item.get("total_amount", 0),
                         "last_order_date": last_order_raw,
@@ -378,27 +374,23 @@ else:
     filtered.sort(key=key_fn, reverse=reverse)
 
     # =========================================
-    # 列スライド式「前へ / 次へ」(上部のみ表示)
+    # 列スライド式「前へ / 次へ」（上部のみ）
     # =========================================
     ROWS, COLS = 2, 2           # 2行×2列 = 4枚
     WINDOW = ROWS * COLS
 
-    # 現在の列オフセット（1列=縦2枚）
     col_offset = int(st.session_state.card_col_offset)
-    start_idx = col_offset * ROWS  # ← 列の先頭アイテムのインデックス
+    start_idx = col_offset * ROWS
 
-    # 範囲外になっていたらクランプ
     if start_idx >= len(filtered) and len(filtered) > 0:
         max_valid_offset = max(0, (len(filtered) - 1) // ROWS)
         col_offset = min(col_offset, max_valid_offset)
         st.session_state.card_col_offset = col_offset
         start_idx = col_offset * ROWS
 
-    # ボタン活性条件
     can_prev = (col_offset > 0)
     can_next = ((col_offset + 1) * ROWS < len(filtered))
 
-    # 上部コントロール（※下部には出さない）
     c1, c2, c3 = st.columns([1, 6, 1])
     with c1:
         if st.button("← 前へ", key="prev_top", disabled=not can_prev, use_container_width=True):
@@ -417,8 +409,7 @@ else:
     if len(filtered) == 0 or start_idx >= len(filtered):
         st.info("表示できる案件がありません。検索条件やフィルタを見直してください。")
     else:
-        # 列c（0..COLS-1）、行r（0..ROWS-1）の順に配置
-        # グローバルindex = start_idx + c*ROWS + r
+        st.markdown('<div class="cards-grid">', unsafe_allow_html=True)
         for r in range(ROWS):
             cols = st.columns(COLS)
             for c, col in enumerate(cols):
@@ -427,11 +418,20 @@ else:
                     continue
                 p = filtered[idx]
                 with col:
+                    # ラッパ（カード用クラス）
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
                     with st.container(border=True):
                         h1, h2 = st.columns([10, 1])
                         with h1:
+                            status = p.get("status", "調査中")
+                            status_cls = {
+                                "提案中": "tag--proposal",
+                                "成約": "tag--won",
+                                "失注": "tag--lost",
+                            }.get(status, "")
                             st.markdown(
-                                f'<div class="title">{p["title"]}<span class="tag">{p["status"]}</span></div>',
+                                f'<div class="title">{p["title"]}'
+                                f'<span class="tag {status_cls}">{status}</span></div>',
                                 unsafe_allow_html=True,
                             )
                         with h2:
@@ -441,33 +441,54 @@ else:
 
                         st.markdown(f'<div class="company">{p["company"]}</div>', unsafe_allow_html=True)
 
+                        # ---- メタ情報（見出しを太字、概要は空なら非表示）----
                         meta_info = []
-                        meta_info.append(f"・最終更新：{_fmt(p.get('updated'))}")
-                        meta_info.append(f"・作成日：{_fmt(p.get('created'))}")
-                        meta_info.append(f"・概要：{p.get('summary', '—')}")
+                        meta_info.append(f"<b>最終更新</b>：{_fmt(p.get('updated'))}")
+                        meta_info.append(f"<b>作成日</b>：{_fmt(p.get('created'))}")
+
+                        summary = (p.get("summary") or "").strip()
+                        DASH_SENTINELS = {"—", "-", "－", "–"}
+                        if summary and summary not in DASH_SENTINELS:
+                            meta_info.append(f"<span class='is-summary'><b>概要</b>：{summary}</span>")
+
                         if p.get("transaction_count", 0) > 0:
-                            meta_info.append(f"・取引履歴：{p['transaction_count']}件")
+                            line = f"<b>取引履歴</b>：{p['transaction_count']}件"
                             if p.get("total_amount", 0) > 0:
                                 try:
-                                    meta_info.append(f"・総取引額：¥{int(p['total_amount']):,}")
+                                    line += f"（累計 ¥{int(p['total_amount']):,}）"
                                 except Exception:
                                     pass
+                            meta_info.append(line)
                             if p.get("last_order_date"):
-                                meta_info.append(f"・最終発注：{format_date(p['last_order_date'])}")
+                                meta_info.append(f"<b>最終発注</b>：{format_date(p['last_order_date'])}")
                         else:
-                            meta_info.append("・取引履歴：未リンク")
-                        meta_info.append(f"・チャット回数：{p.get('user_message_count', 0)}回")
+                            meta_info.append("<b>取引履歴</b>：未リンク")
+
+                        meta_info.append(f"<b>チャット回数</b>：{p.get('user_message_count', 0)}回")
 
                         st.markdown(
-                            f'<div class="meta">{"".join([f"{info}<br>" for info in meta_info])}</div>',
+                            f'<div class="meta">{"".join([f"・{info}<br>" for info in meta_info])}</div>',
                             unsafe_allow_html=True,
                         )
+
                         b1, b2 = st.columns(2)
                         with b1:
-                            if st.button("企業分析", key=f"analysis_{p['id']}", use_container_width=True, type="secondary"):
+                            if st.button(
+                                "企業分析",
+                                key=f"analysis_{p['id']}",
+                                use_container_width=True,
+                                type="secondary",
+                            ):
                                 st.session_state.selected_project = p
                                 _switch_page("企業分析", p)
                         with b2:
-                            if st.button("スライド作成", key=f"slides_{p['id']}", use_container_width=True, type="primary"):
+                            if st.button(
+                                "スライド作成",
+                                key=f"slides_{p['id']}",
+                                use_container_width=True,
+                                type="primary",
+                            ):
                                 st.session_state.selected_project = p
                                 _switch_page("スライド作成", p)
+                    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)

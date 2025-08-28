@@ -157,7 +157,7 @@ def render_company_analysis_page():
         project_data = st.session_state.selected_project
         default_company = project_data.get("company", "")
         item_id = project_data.get("id")
-        title_text = f"{project_data['title']} - {project_data['company']}の分析"
+        title_text = f"{project_data['title']} - {project_data['company']}"
     else:
         default_company = ""
         item_id = None

@@ -13,17 +13,16 @@ from lib.company_analysis.llm import (
     company_briefing_with_web_search,
     company_briefing_without_web_search,
     generate_tavily_queries,
-    extract_user_intent,  # ★ 追加：ユーザー意図抽出
+    extract_user_intent,
 )
 
 # 共通スタイル(HTML生成もstyles側に集約)
 from lib.styles import (
     apply_chat_scroll_script,
-    apply_company_analysis_page_styles,  # ← ページ専用CSS注入
+    apply_company_analysis_page_styles,
     apply_main_styles,
-    apply_title_styles,
-    render_company_analysis_title,  # ← タイトルh1をstyles側で描画
-    render_sidebar_logo_card,  # ← ロゴカードHTMLをstyles側で描画
+    render_company_analysis_title,
+    render_sidebar_logo_card,
 )
 
 # 画像ファイルのパス定義
@@ -153,7 +152,7 @@ def render_company_analysis_page():
         project_data = st.session_state.selected_project
         default_company = project_data.get("company", "")
         item_id = project_data.get("id")
-        title_text = f"{project_data['title']} - {project_data['company']}"
+        title_text = f"{project_data['title']} / {project_data['company']}"
     else:
         default_company = ""
         item_id = None
@@ -161,12 +160,12 @@ def render_company_analysis_page():
 
     # ==== スタイル適用 ====
     apply_main_styles(hide_sidebar=False, hide_header=True)
-    apply_title_styles()
     apply_company_analysis_page_styles()
 
     # ==== 左サイドバー ====
     with st.sidebar:
         render_sidebar_logo_card(LOGO_PATH)
+        st.markdown("### 設定")
 
         company = st.text_input(
             "企業名", value=default_company, key="company_input", placeholder="例）大塚商会、NTTデータ など"
@@ -174,28 +173,26 @@ def render_company_analysis_page():
 
         use_web_search = st.toggle(
             "Web検索を使用", value=True, key="use_web_search_toggle",
-            help=("オン：企業名でWeb検索を実行し、検索結果と入力をもとに分析\nオフ：ユーザー入力のみをもとに分析"),
         )
         show_history = st.toggle(
-            "過去の取引履歴を表示", value=False, key="show_history_toggle",
-            help="チェックを入れると、対象企業の過去取引履歴を表示します。",
+            "対象企業との過去の取引履歴を表示", value=False, key="show_history_toggle",
+            help="チェックを入れると、対象企業との過去取引履歴を表示します。",
         )
 
         # 「総参照URL件数」=「生成クエリ数」
         top_k = st.selectbox(
-            "総参照URL件数",
+            "参照URL件数",
             options=list(range(1, 11)),
-            index=5,
+            index=2,
             key="top_k_input",
-            help="最終的に参照するURLは 1クエリ=1URL でこの件数になります。",
         )
 
         st.session_state.setdefault("history_reference_count", 3)
         history_count = st.selectbox(
             "直近のチャット履歴の参照数",
-            options=list(range(1, 11)),
+            options=list(range(0, 11)),
+            index=3,
             key="history_reference_count",
-            help="チャット回答時に過去の履歴を文脈として参照します",
         )
 
         if st.button("画面内チャット履歴をクリア", use_container_width=True):

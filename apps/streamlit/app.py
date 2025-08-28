@@ -29,7 +29,6 @@ from lib.api import APIError, api_available, format_date, get_api_client
 from lib.styles import (
     apply_main_styles,
     apply_projects_list_page_styles,  # ← このページ専用CSS
-    apply_title_styles,               # ← タイトル基本スタイル
     render_projects_list_title,       # ← タイトル描画
     render_sidebar_logo_card,         # ← サイドバー上部ロゴ
 )
@@ -49,7 +48,6 @@ except Exception:
 
 # ---- 共通スタイル適用(サイドバーを出す)
 apply_main_styles(hide_sidebar=False, hide_header=True)
-apply_title_styles()
 apply_projects_list_page_styles()  # ← このページの余白/ロゴカード/カード装飾など
 
 # ---- セッション初期化
@@ -232,6 +230,7 @@ else:
     # ---------- サイドバー ----------
     with st.sidebar:
         render_sidebar_logo_card(LOGO_PATH)
+        st.markdown("### 設定")
 
         # 並び替え
         sort_choice = st.selectbox(

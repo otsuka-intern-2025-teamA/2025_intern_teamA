@@ -111,22 +111,6 @@ def get_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True) -> 
     return "\n".join(css)
 
 
-def get_title_styles() -> str:
-    """タイトルの基本スタイル(過度な負マージンを使わない)"""
-    return """
-    <style>
-    .dynamic-title {
-        font-size: 1rem !important;
-        line-height: 1.3 !important;
-        font-weight: 700 !important;
-        color: #262730 !important;
-        margin: -1 !important; padding: 0 !important;
-        word-wrap: break-word !important; overflow-wrap: break-word !important;
-    }
-    .stApp h1 { word-wrap: break-word !important; overflow-wrap: break-word !important; line-height: 1.3 !important; }
-    </style>
-    """
-
 
 def get_chat_scroll_script() -> str:
     return """
@@ -142,9 +126,6 @@ def apply_main_styles(*, hide_sidebar: bool = False, hide_header: bool = True):
     # 引数は互換のため残しているが、上記方針で安全に適用
     st.markdown(get_main_styles(hide_sidebar=hide_sidebar, hide_header=hide_header), unsafe_allow_html=True)
 
-
-def apply_title_styles():
-    st.markdown(get_title_styles(), unsafe_allow_html=True)
 
 
 def apply_chat_scroll_script():
@@ -170,7 +151,7 @@ def get_company_analysis_page_styles() -> str:
         background: #FFFFFF; border-radius: 16px; padding: 12px 14px;
         border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         display: flex; align-items: center; justify-content: center;
-        margin-bottom: 12px; margin-top: -8px;
+        margin-bottom: 12px; margin-top: -22px;
     }
     .sidebar-logo-card img { max-width: 100%; height: auto; display: block; }
 
@@ -222,7 +203,7 @@ def get_projects_list_page_styles() -> str:
         background: #FFFFFF; border-radius: 16px; padding: 12px 14px;
         border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         display: flex; align-items: center; justify-content: center;
-        margin-bottom: 12px; margin-top: -8px;
+        margin-bottom: 12px; margin-top: -22px;
     }
     .sidebar-logo-card img { max-width: 100%; height: auto; display: block; }
 

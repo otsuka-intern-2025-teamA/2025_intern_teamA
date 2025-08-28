@@ -168,9 +168,9 @@ def _to_float(val) -> float | None:
 
 
 def _fmt_price(val) -> str:
-    """Format a numerical price value as a string with a yen symbol and commas."""
+    """Format a numerical price value as a string with a $ symbol and commas."""
     v = _to_float(val)
-    return f"¥{int(round(v)):,}" if v is not None else "—"
+    return f"${int(round(v)):,}" if v is not None else "—"
 
 
 def _list_product_datasets() -> List[str]:

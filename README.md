@@ -113,8 +113,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 #### ターミナル2: Streamlitアプリ
 ```powershell
 .venv\Scripts\activate
-cd apps\streamlit
-streamlit run app.py
+streamlit run apps\streamlit\app.py
 ```
 
 ### 3. アクセス

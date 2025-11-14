@@ -2,7 +2,7 @@
 
 企業分析機能付きの案件管理システムです。SQLiteデータベースとLLM（Large Language Model）を活用し、効率的な企業分析とデータ管理を実現します。
 
-<video src="https://raw.githubusercontent.com/otsuka-intern-2025-teamA/2025_intern_teamA/main/videos/demo.mp4" controls width="600"></video>
+https://github.com/user-attachments/assets/8df39240-623b-4d6f-895f-d468acb7ffe4
 
        
 ## 🛠️ 技術構成
